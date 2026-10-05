@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>阿基米德 · 小红书版</title>
+    <script src="./assets/vendor/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "MaShanZheng";
+        src: url("./assets/fonts/MaShanZheng-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Regular.otf") format("opentype");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Bold.otf") format("opentype");
+        font-weight: 700;
+      }
+      @font-face { font-family: "Songti SC"; src: local("Songti SC"), local("STSong"); }
+      @font-face { font-family: "Kaiti SC"; src: local("Kaiti SC"), local("STKaiti"); }
+      @font-face { font-family: "STKaiti"; src: local("STKaiti"); }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0; width: 1080px; height: 1920px; overflow: hidden;
+        background: #0d0b08;
+        font-family: "SourceHanSerif", "Songti SC", serif;
+      }
+      #root { position: relative; width: 1080px; height: 1920px; }
+      .clip { position: absolute; inset: 0; }
+
+      #stage canvas { width: 100%; height: 100%; display: block; }
+      #grade {
+        position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        background:
+          radial-gradient(ellipse 140% 100% at 50% 40%, rgba(0,0,0,0) 52%, rgba(5,3,1,0.55) 100%),
+          linear-gradient(rgba(18,11,4,0.12), rgba(18,11,4,0.12));
+        mix-blend-mode: multiply;
+      }
+      #warm {
+        position: absolute; inset: 0; pointer-events: none; z-index: 3;
+        background: radial-gradient(ellipse 120% 90% at 50% 45%, rgba(255,180,80,0.05), rgba(120,60,10,0.10) 85%);
+      }
+
+      /* ---------- 钩子题卡（前3秒） ---------- */
+      #titlecard {
+        position: absolute; inset: 0; z-index: 10; opacity: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none; background: rgba(6,4,2,0.42);
+      }
+      #title-era {
+        color: #c9b98f; font-size: 30px; letter-spacing: 0.5em; margin-bottom: 60px;
+        text-shadow: 0 0 22px rgba(0,0,0,0.9);
+      }
+      #title-main {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e6c0; font-size: 132px; font-weight: 400; line-height: 1.12;
+        letter-spacing: 0.22em; text-indent: 0.22em; text-align: center; white-space: nowrap;
+        text-shadow: 0 6px 44px rgba(0,0,0,0.9), 0 0 110px rgba(255,190,90,0.14);
+      }
+      #title-sub {
+        margin-top: 70px; color: #e8d9a0; font-size: 44px; letter-spacing: 0.3em; text-indent: 0.3em;
+        font-weight: 700; text-shadow: 0 2px 20px rgba(0,0,0,0.9);
+      }
+      #title-sub-en {
+        margin-top: 26px; color: #8d8069; font-size: 22px; letter-spacing: 0.34em; text-indent: 0.34em;
+        font-family: Georgia, serif;
+      }
+      #title-foot {
+        position: absolute; bottom: 60px; color: #b3a582; font-size: 22px; letter-spacing: 0.12em;
+        text-shadow: 0 1px 8px rgba(0,0,0,0.9);
+      }
+
+      /* ---------- 站点知识卡（底部） ---------- */
+      #stationcard {
+        position: absolute; left: 44px; right: 44px; bottom: 210px; z-index: 10; opacity: 0;
+        background: rgba(12, 9, 6, 0.9);
+        border: 1px solid rgba(206, 166, 92, 0.35);
+        box-shadow: 0 20px 70px rgba(0,0,0,0.65);
+        padding: 30px 36px 32px;
+        pointer-events: none;
+      }
+      #card-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        border-bottom: 1px solid rgba(206,166,92,0.25); padding-bottom: 14px;
+      }
+      #card-no { color: #e8d9a0; font-size: 26px; letter-spacing: 0.28em; font-weight: 700; }
+      #card-coord { color: #8a7f66; font-size: 19px; letter-spacing: 0.04em; font-family: Georgia, serif; }
+      #card-art {
+        display: block; width: 100%; height: auto; max-height: 470px; object-fit: contain;
+        object-position: center; margin-top: 22px; background: #0f0c08;
+        filter: sepia(0.25) saturate(0.9) contrast(1.04) brightness(0.98);
+        border: 1px solid rgba(206,166,92,0.2);
+      }
+      #card-title {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e2b3; font-size: 84px; font-weight: 400; line-height: 1.12; margin-top: 20px;
+        text-shadow: 0 3px 22px rgba(0,0,0,0.65);
+      }
+      #card-name-row { margin-top: 12px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+      #card-name { color: #e0cf9f; font-size: 32px; font-weight: 700; letter-spacing: 0.12em; }
+      #card-modern { color: #cdc0a2; font-size: 22px; letter-spacing: 0.05em; text-shadow: 0 1px 8px rgba(0,0,0,0.9); }
+      #card-text {
+        margin-top: 22px; color: #ddd2bc; font-size: 28px; line-height: 1.72;
+        text-align: justify; letter-spacing: 0.02em;
+      }
+
+      /* ---------- 冷知识字幕条 ---------- */
+      #caption {
+        position: absolute; left: 44px; right: 44px; bottom: 96px; z-index: 10; opacity: 0;
+        background: linear-gradient(90deg, rgba(96,74,36,0.92), rgba(58,44,20,0.92));
+        border: 1px solid rgba(240,205,126,0.5);
+        color: #f7e6b8; font-size: 27px; letter-spacing: 0.06em; line-height: 1.4;
+        padding: 16px 26px; text-align: center; pointer-events: none;
+      }
+      #caption::before { content: "冷知识 "; color: #c9a45a; font-weight: 700; letter-spacing: 0.2em; }
+
+      /* ---------- HUD（里程，卡上方小条） ---------- */
+      #hud {
+        position: absolute; left: 44px; bottom: 1210px; z-index: 9; opacity: 0; pointer-events: none;
+        display: flex; align-items: baseline; gap: 14px;
+      }
+      #hud-km { color: #ecd9a4; font-size: 40px; font-weight: 700; text-shadow: 0 2px 14px rgba(0,0,0,0.85); }
+      #hud-km-unit { color: #d8cba8; font-size: 20px; letter-spacing: 0.24em; text-shadow: 0 1px 8px rgba(0,0,0,0.9); }
+      #hud-coord { color: #d8cba8; font-size: 20px; font-family: Georgia, serif; letter-spacing: 0.04em; text-shadow: 0 1px 8px rgba(0,0,0,0.9); }
+      #hud-barwrap { margin-left: 6px; width: 150px; height: 3px; background: rgba(210,180,120,0.25); align-self: center; }
+      #hud-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #8a6a30, #f0cd7e); }
+
+      /* ---------- 右上 STATION ---------- */
+      #topright {
+        position: absolute; right: 44px; top: 130px; z-index: 10; opacity: 0;
+        text-align: right; pointer-events: none;
+      }
+      #topright .st-word { color: #8a7f66; font-size: 20px; letter-spacing: 0.5em; font-family: Georgia, serif; }
+      #tr-num { color: #ecd9a4; font-size: 60px; font-weight: 700; line-height: 1.1; text-shadow: 0 2px 16px rgba(0,0,0,0.8); }
+      #tr-num .of { font-size: 28px; color: #cdc0a2; font-weight: 400; margin-left: 4px; text-shadow: 0 1px 8px rgba(0,0,0,0.9); }
+      #tr-region { margin-top: 4px; color: #d8cba8; font-size: 24px; letter-spacing: 0.2em; text-shadow: 0 1px 10px rgba(0,0,0,0.95); }
+
+      /* ---------- 左上 年代 ---------- */
+      #topleft {
+        position: absolute; left: 44px; top: 130px; z-index: 10; opacity: 0; pointer-events: none;
+        display: flex; align-items: center; gap: 18px;
+      }
+      #topleft .mark {
+        width: 46px; height: 46px; border: 1px solid rgba(206,166,92,0.55); color: #e0cf9f;
+        font-family: "MaShanZheng", serif; font-size: 26px; display: flex; align-items: center; justify-content: center;
+        background: rgba(12,9,6,0.6);
+      }
+      #tl-era { color: #e0d4b0; font-size: 27px; letter-spacing: 0.2em; text-shadow: 0 1px 10px rgba(0,0,0,0.9); }
+      #topleft .wm { display: none; }
+
+      /* ---------- 地图标签 ---------- */
+      #labels { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+      .lbl { position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+      .lbl .nm {
+        color: #f7eed8; font-size: 30px; letter-spacing: 0.12em; font-weight: 700;
+        text-shadow: 0 0 14px rgba(0,0,0,0.98), 0 0 30px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,1);
+        transform: translate(14px, -44px); white-space: nowrap;
+      }
+      .lbl.flip .nm { transform: translate(14px, 8px); }
+      .lbl.flip .sub { transform: translate(14px, 10px); }
+      .lbl .sub {
+        color: #d6c9a6; font-size: 19px; letter-spacing: 0.08em; margin-top: 2px;
+        transform: translate(14px, -38px); white-space: nowrap;
+        text-shadow: 0 0 10px rgba(0,0,0,0.95);
+      }
+      .lbl.wp .nm { color: #d6c9a6; font-size: 20px; transform: translate(8px, -26px); }
+      .tag {
+        position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity;
+        background: rgba(122, 32, 22, 0.9); border: 1px solid rgba(255, 160, 130, 0.4);
+        color: #f2d9c8; font-size: 20px; letter-spacing: 0.08em; padding: 6px 14px;
+        transform: translate(-50%, 8px); white-space: nowrap;
+      }
+
+      /* ---------- 总览统计 ---------- */
+      #overview {
+        position: absolute; inset: 0; z-index: 10; opacity: 0; pointer-events: none;
+        background: linear-gradient(rgba(8,6,4,0.55), rgba(8,6,4,0.05) 45%, rgba(8,6,4,0.05) 60%, rgba(8,6,4,0.82));
+      }
+      #ov-head { position: absolute; left: 0; right: 0; top: 170px; text-align: center; }
+      #ov-h1 {
+        font-family: "MaShanZheng", "Kaiti SC", serif; color: #f3e6c0; font-size: 110px; line-height: 1.12;
+        text-shadow: 0 4px 30px rgba(0,0,0,0.85);
+      }
+      #ov-era { color: #c9b98f; font-size: 28px; letter-spacing: 0.24em; margin-top: 20px; }
+      #stats {
+        position: absolute; left: 80px; right: 80px; top: 980px; opacity: 0;
+      }
+      .stat { border-top: 1px solid rgba(206,166,92,0.28); padding: 22px 8px 20px; display: flex; align-items: baseline; justify-content: space-between; }
+      .stat-num { color: #ecd9a4; font-size: 64px; font-weight: 700; text-shadow: 0 2px 18px rgba(0,0,0,0.75); }
+      .stat-desc { color: #e2d5ae; font-size: 26px; letter-spacing: 0.22em; text-shadow: 0 1px 12px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.8); }
+
+      /* ---------- 结尾卡 ---------- */
+      #endcard {
+        position: absolute; inset: 0; z-index: 14; opacity: 0; background: rgba(8,6,4,0.96);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none; gap: 40px;
+      }
+      #endcard .end-big {
+        font-family: "MaShanZheng", serif; color: #f3e6c0; font-size: 150px; letter-spacing: 0.3em; text-indent: 0.3em;
+        text-shadow: 0 4px 34px rgba(0,0,0,0.8);
+      }
+      #endcard .end-lines { text-align: center; }
+      #endcard .end-lines p { color: #cfc4ae; font-size: 34px; line-height: 2.1; letter-spacing: 0.12em; }
+      #endcard .end-credit {
+        position: absolute; bottom: 70px; left: 60px; right: 60px; text-align: center;
+        color: #a89a78; font-size: 19px; letter-spacing: 0.06em; line-height: 1.7;
+      }
+
+      #credits { display: none; }
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 20; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="66" data-width="1080" data-height="1920">
+      <div id="stage" class="clip" data-start="0" data-duration="66" data-track-index="0">
+        <canvas id="gl"></canvas>
+        <div id="grade"></div>
+        <div id="warm"></div>
+      </div>
+
+      <div id="labels" class="clip" data-start="0" data-duration="66" data-track-index="1"></div>
+
+      <div id="overview" class="clip" data-start="0" data-duration="66" data-track-index="2">
+        <div id="ov-head">
+          <div id="ov-h1">七十五年<br />一个人的支点</div>
+          <div id="ov-era">公元前287 — 前212</div>
+        </div>
+        <div id="stats"></div>
+      </div>
+
+      <div id="topleft" data-start="0" data-duration="66" data-track-index="3">
+        <div class="mark" id="tl-mark">阿</div>
+        <div id="tl-era">公元前 287 年 · 游学纪</div>
+        <div class="wm" id="tl-wm">阿基米德 · 支点</div>
+      </div>
+
+      <div id="topright" data-start="0" data-duration="66" data-track-index="4">
+        <div class="st-word">STATION</div>
+        <div id="tr-num">01<span class="of">/10</span></div>
+        <div id="tr-region">大希腊 · 西西里</div>
+      </div>
+
+      <div id="hud" data-start="0" data-duration="66" data-track-index="5">
+        <span id="hud-km">0</span><span id="hud-km-unit">公里</span><span id="hud-coord">N 37.07°</span>
+        <div id="hud-barwrap"><div id="hud-bar"></div></div>
+      </div>
+
+      <div id="stationcard" data-start="0" data-duration="66" data-track-index="6">
+        <div id="card-head">
+          <div id="card-no">第 01 站</div>
+          <div id="card-coord">37.07°N · 15.29°E</div>
+        </div>
+        <img id="card-art" alt="" />
+        <div id="card-title">天才出厂</div>
+        <div id="card-name-row">
+          <div id="card-name">叙拉古</div>
+          <div id="card-modern">西西里 · 锡拉库萨</div>
+        </div>
+        <div id="card-text"></div>
+      </div>
+
+      <div id="caption" data-start="0" data-duration="66" data-track-index="7"></div>
+
+      <div id="titlecard" class="clip" data-start="0" data-duration="66" data-track-index="8">
+        <div id="title-era">公元前 287 · 西西里岛</div>
+        <div id="title-main">阿基米德</div>
+        <div id="title-sub">给我一个支点，撬动整个地球</div>
+        <div id="title-sub-en">ARCHIMEDES · 287 BC - 212 BC</div>
+        <div id="title-foot">史料：普鲁塔克《对比列传》· 维特鲁威《建筑十书》 · 传说已标注「相传」</div>
+      </div>
+
+      <div id="endcard" class="clip" data-start="0" data-duration="66" data-track-index="9">
+        <div class="end-big">关注我</div>
+        <div class="end-lines"></div>
+        <div class="end-credit"></div>
+      </div>
+
+      <div id="credits" class="clip" data-start="0" data-duration="66" data-track-index="10"></div>
+
+      <div id="fade" class="clip" data-start="0" data-duration="66" data-track-index="11"></div>
+
+      <audio
+        id="bgm"
+        class="clip"
+        data-start="0"
+        data-duration="65.5"
+        data-volume="0.8"
+        data-fade-out="4.5"
+        data-track-index="12"
+        src="assets/music/wallpaper.mp3"
+      ></audio>
+    </div>
+    <script type="importmap">
+      { "imports": { "three": "./node_modules/three/build/three.module.js" } }
+    </script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__PAGEERR = [];
+      addEventListener("error", (e) => window.__PAGEERR.push(String(e.message) + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno));
+      addEventListener("unhandledrejection", (e) => window.__PAGEERR.push("REJ " + String(e.reason)));
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

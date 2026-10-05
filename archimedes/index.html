@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>阿基米德</title>
+    <script src="./assets/vendor/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "MaShanZheng";
+        src: url("./assets/fonts/MaShanZheng-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Regular.otf") format("opentype");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Bold.otf") format("opentype");
+        font-weight: 700;
+      }
+      @font-face { font-family: "Songti SC"; src: local("Songti SC"), local("STSong"); }
+      @font-face { font-family: "Kaiti SC"; src: local("Kaiti SC"), local("STKaiti"); }
+      @font-face { font-family: "STKaiti"; src: local("STKaiti"); }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0; width: 1920px; height: 1080px; overflow: hidden;
+        background: #0d0b08;
+        font-family: "SourceHanSerif", "Songti SC", serif;
+      }
+      #root { position: relative; width: 1920px; height: 1080px; }
+      .clip { position: absolute; inset: 0; }
+
+      #stage canvas { width: 100%; height: 100%; display: block; }
+      #grade {
+        position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        background:
+          radial-gradient(ellipse 130% 100% at 50% 42%, rgba(0,0,0,0) 58%, rgba(5,3,1,0.52) 100%),
+          linear-gradient(rgba(18,11,4,0.11), rgba(18,11,4,0.11));
+        mix-blend-mode: multiply;
+      }
+      #warm {
+        position: absolute; inset: 0; pointer-events: none; z-index: 3;
+        background: radial-gradient(ellipse 120% 90% at 50% 45%, rgba(255,180,80,0.05), rgba(120,60,10,0.10) 85%);
+      }
+
+      #titlecard {
+        position: absolute; inset: 0; z-index: 10; opacity: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none;
+      }
+      #title-era {
+        color: #c9b98f; font-size: 21px; letter-spacing: 0.5em; margin-bottom: 34px;
+        text-shadow: 0 0 22px rgba(0,0,0,0.9);
+      }
+      #title-main {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e6c0; font-size: 176px; font-weight: 400; line-height: 1;
+        letter-spacing: 0.32em; text-indent: 0.32em;
+        text-shadow: 0 4px 40px rgba(0,0,0,0.85), 0 0 90px rgba(255,190,90,0.12);
+      }
+      #title-sub {
+        margin-top: 44px; color: #d8c9a2; font-size: 30px; letter-spacing: 0.42em; text-indent: 0.42em;
+      }
+      #title-sub-en {
+        margin-top: 16px; color: #8d8069; font-size: 14px; letter-spacing: 0.34em; text-indent: 0.34em;
+        font-family: Georgia, serif;
+      }
+      #title-foot {
+        position: absolute; bottom: 34px; color: #6f6650; font-size: 15px; letter-spacing: 0.14em;
+      }
+
+      #stationcard {
+        position: absolute; right: 64px; top: 158px; width: 470px; z-index: 10; opacity: 0;
+        background: rgba(14, 11, 8, 0.86);
+        border: 1px solid rgba(206, 166, 92, 0.32);
+        box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+        padding: 26px 30px 30px;
+        pointer-events: none;
+      }
+      #card-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        border-bottom: 1px solid rgba(206,166,92,0.22); padding-bottom: 12px;
+      }
+      #card-no { color: #e8d9a0; font-size: 19px; letter-spacing: 0.3em; font-weight: 700; }
+      #card-coord { color: #8a7f66; font-size: 14px; letter-spacing: 0.06em; font-family: Georgia, serif; }
+      #card-art {
+        display: block; width: 100%; height: 190px; object-fit: cover; margin-top: 18px;
+        filter: sepia(0.35) saturate(0.8) contrast(1.05) brightness(0.92);
+        border: 1px solid rgba(206,166,92,0.18);
+      }
+      #card-title {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e2b3; font-size: 66px; font-weight: 400; line-height: 1.15; margin-top: 18px;
+        text-shadow: 0 2px 18px rgba(0,0,0,0.6);
+      }
+      #card-name-row { margin-top: 8px; display: flex; align-items: baseline; gap: 14px; }
+      #card-name { color: #e0cf9f; font-size: 24px; font-weight: 700; letter-spacing: 0.12em; }
+      #card-modern { color: #8a7f66; font-size: 15px; letter-spacing: 0.06em; }
+      #card-text {
+        margin-top: 18px; color: #cfc4ae; font-size: 16.5px; line-height: 1.95;
+        text-align: justify; letter-spacing: 0.03em;
+      }
+
+      #hud {
+        position: absolute; left: 70px; bottom: 64px; z-index: 10; opacity: 0; pointer-events: none;
+      }
+      #hud-coord { color: #b8ab8d; font-size: 17px; letter-spacing: 0.08em; font-family: Georgia, serif; }
+      #hud-km-row { margin-top: 10px; display: flex; align-items: baseline; gap: 12px; }
+      #hud-km { color: #ecd9a4; font-size: 42px; font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgba(0,0,0,0.7); }
+      #hud-km-unit { color: #9b8f74; font-size: 17px; letter-spacing: 0.3em; }
+      #hud-track { margin-top: 14px; width: 300px; height: 3px; background: rgba(210,180,120,0.18); }
+      #hud-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #8a6a30, #f0cd7e); box-shadow: 0 0 10px rgba(240,205,126,0.8); }
+
+      #topright {
+        position: absolute; right: 70px; top: 44px; z-index: 10; opacity: 0;
+        text-align: right; pointer-events: none;
+      }
+      #topright .st-word { color: #7d7259; font-size: 14px; letter-spacing: 0.5em; font-family: Georgia, serif; }
+      #tr-num { color: #ecd9a4; font-size: 44px; font-weight: 700; line-height: 1.1; }
+      #tr-num .of { font-size: 20px; color: #8a7f66; font-weight: 400; margin-left: 4px; }
+      #tr-region { margin-top: 4px; color: #b3a582; font-size: 18px; letter-spacing: 0.22em; }
+
+      #topleft {
+        position: absolute; left: 70px; top: 44px; z-index: 10; opacity: 0; pointer-events: none;
+        display: flex; align-items: center; gap: 16px;
+      }
+      #topleft .mark {
+        width: 34px; height: 34px; border: 1px solid rgba(206,166,92,0.5); color: #e0cf9f;
+        font-family: "MaShanZheng", serif; font-size: 19px; display: flex; align-items: center; justify-content: center;
+      }
+      #tl-era { color: #c9b98f; font-size: 19px; letter-spacing: 0.24em; }
+      #topleft .wm { color: #6f6650; font-size: 14px; letter-spacing: 0.3em; border-left: 1px solid rgba(160,140,100,0.35); padding-left: 16px; }
+
+      #labels { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+      .lbl { position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+      .lbl .nm {
+        color: #f7eed8; font-size: 21px; letter-spacing: 0.14em; font-weight: 700;
+        text-shadow: 0 0 12px rgba(0,0,0,0.98), 0 0 26px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,1);
+        transform: translate(12px, -34px); white-space: nowrap;
+      }
+      .lbl.flip .nm { transform: translate(12px, 6px); }
+      .lbl.flip .sub { transform: translate(12px, 8px); }
+      .lbl .sub {
+        color: #97896b; font-size: 13px; letter-spacing: 0.1em; margin-top: 2px;
+        transform: translate(12px, -30px); white-space: nowrap;
+        text-shadow: 0 0 8px rgba(0,0,0,0.95);
+      }
+      .lbl.wp .nm { color: #a89a78; font-size: 15px; transform: translate(8px, -22px); }
+      .tag {
+        position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity;
+        background: rgba(122, 32, 22, 0.88); border: 1px solid rgba(255, 160, 130, 0.4);
+        color: #f2d9c8; font-size: 13.5px; letter-spacing: 0.1em; padding: 4px 10px;
+        transform: translate(-50%, 8px); white-space: nowrap;
+      }
+
+      #overview {
+        position: absolute; inset: 0; z-index: 10; opacity: 0; pointer-events: none;
+        background: linear-gradient(90deg, rgba(8,6,4,0) 46%, rgba(8,6,4,0.78) 60%);
+      }
+      #ov-head {
+        position: absolute; right: 88px; top: 110px; text-align: right; width: 560px;
+      }
+      #ov-h1 {
+        font-family: "MaShanZheng", "Kaiti SC", serif; color: #f3e6c0; font-size: 92px; line-height: 1.1;
+        text-shadow: 0 3px 26px rgba(0,0,0,0.8);
+      }
+      #ov-era { color: #c9b98f; font-size: 20px; letter-spacing: 0.24em; margin-top: 14px; }
+      #stats {
+        position: absolute; right: 88px; top: 360px; width: 560px; opacity: 0;
+      }
+      .stat { border-top: 1px solid rgba(206,166,92,0.22); padding: 18px 4px 16px; display: flex; align-items: baseline; justify-content: space-between; }
+      .stat-num { color: #ecd9a4; font-size: 52px; font-weight: 700; text-shadow: 0 2px 16px rgba(0,0,0,0.7); }
+      .stat-desc { color: #8a7f66; font-size: 16px; letter-spacing: 0.3em; }
+
+      #credits {
+        position: absolute; inset: 0; z-index: 12; opacity: 0; background: #0a0806;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none;
+      }
+      #credits h1 {
+        font-family: "MaShanZheng", serif; color: #f3e6c0; font-size: 84px; font-weight: 400;
+        letter-spacing: 0.3em; margin-bottom: 60px;
+      }
+      #credits .cols { display: flex; gap: 90px; }
+      #credits .col h3 { color: #b3a582; font-size: 19px; letter-spacing: 0.3em; margin: 26px 0 12px; font-weight: 700; }
+      #credits .col p { color: #8a8069; font-size: 15px; line-height: 1.9; letter-spacing: 0.03em; }
+      #credits .rend { margin-top: 56px; color: #6f6650; font-size: 14px; letter-spacing: 0.2em; font-family: Georgia, serif; }
+
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 20; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-qbnw" id="root" data-composition-id="main" data-start="0" data-duration="60" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-ydyw" id="stage" class="clip" data-start="0" data-duration="60" data-track-index="0">
+        <canvas data-hf-id="hf-7ba3" id="gl"></canvas>
+        <div data-hf-id="hf-9j86" id="grade"></div>
+        <div data-hf-id="hf-3vla" id="warm"></div>
+      </div>
+
+      <div data-hf-id="hf-pi7a" id="labels" class="clip" data-start="0" data-duration="60" data-track-index="1"></div>
+
+      <div data-hf-id="hf-7j8t" id="overview" class="clip" data-start="0" data-duration="60" data-track-index="2">
+        <div data-hf-id="hf-w8bt" id="ov-head">
+          <div data-hf-id="hf-0cqy" id="ov-h1">七十五年<br data-hf-id="hf-x5px">一个人的支点</div>
+          <div data-hf-id="hf-uhmw" id="ov-era">公元前287 — 前212</div>
+        </div>
+        <div data-hf-id="hf-lsyu" id="stats"></div>
+      </div>
+
+      <div data-hf-id="hf-f8wo" id="topleft" data-start="0" data-duration="60" data-track-index="3">
+        <div data-hf-id="hf-prha" class="mark" id="tl-mark">阿</div>
+        <div data-hf-id="hf-yone" id="tl-era">公元前 287 年 · 游学纪</div>
+        <div data-hf-id="hf-mp0v" class="wm" id="tl-wm">阿基米德 · 支点</div>
+      </div>
+
+      <div data-hf-id="hf-irc8" id="topright" data-start="0" data-duration="60" data-track-index="4">
+        <div data-hf-id="hf-e3sy" class="st-word">STATION</div>
+        <div data-hf-id="hf-770v" id="tr-num">01<span data-hf-id="hf-34eh" class="of">/8</span></div>
+        <div data-hf-id="hf-ak60" id="tr-region">大希腊 · 西西里</div>
+      </div>
+
+      <div data-hf-id="hf-xe5r" id="hud" data-start="0" data-duration="60" data-track-index="5">
+        <div data-hf-id="hf-tnzu" id="hud-coord">N 37.07° · E 15.29°</div>
+        <div data-hf-id="hf-6pny" id="hud-km-row"><span data-hf-id="hf-mdc6" id="hud-km">0</span><span data-hf-id="hf-isc1" id="hud-km-unit">公里</span></div>
+        <div data-hf-id="hf-o17q" id="hud-track"><div data-hf-id="hf-6vus" id="hud-bar"></div></div>
+      </div>
+
+      <div data-hf-id="hf-yqo7" id="stationcard" data-start="0" data-duration="60" data-track-index="6">
+        <div data-hf-id="hf-7e1e" id="card-head">
+          <div data-hf-id="hf-yg2t" id="card-no">第 01 站</div>
+          <div data-hf-id="hf-bn9h" id="card-coord">37.07°N · 15.29°E</div>
+        </div>
+        <img data-hf-id="hf-cdkn" id="card-art" alt="">
+        <div data-hf-id="hf-7psu" id="card-title">几何之子</div>
+        <div data-hf-id="hf-qzty" id="card-name-row">
+          <div data-hf-id="hf-nhk9" id="card-name">叙拉古</div>
+          <div data-hf-id="hf-zeoh" id="card-modern">西西里 · 锡拉库萨</div>
+        </div>
+        <div data-hf-id="hf-4s21" id="card-text"></div>
+      </div>
+
+      <div data-hf-id="hf-2t63" id="titlecard" class="clip" data-start="0" data-duration="60" data-track-index="7">
+        <div data-hf-id="hf-sikd" id="title-era">公元前 287 · 希腊化时代</div>
+        <div data-hf-id="hf-s94m" id="title-main">阿基米德</div>
+        <div data-hf-id="hf-gch4" id="title-sub">给我一个支点 · 我能撬动地球</div>
+        <div data-hf-id="hf-gq22" id="title-sub-en">GIVE ME A PLACE TO STAND AND I WILL MOVE THE EARTH</div>
+        <div data-hf-id="hf-icf2" id="title-foot">史料依据 普鲁塔克《对比列传》 · 维特鲁威《建筑十书》 · 传说均已标注「相传」</div>
+      </div>
+
+      <div data-hf-id="hf-11lk" id="credits" class="clip" data-start="0" data-duration="60" data-track-index="8"></div>
+
+      <div data-hf-id="hf-4au1" id="fade" class="clip" data-start="0" data-duration="60" data-track-index="9"></div>
+
+      <audio data-hf-id="hf-sqo9" id="bgm" class="clip" data-start="0" data-duration="59.5" data-volume="0.85" data-fade-out="4.5" data-track-index="10" src="assets/music/gymnopedie-no1.mp3"></audio>
+    </div>
+    <script type="importmap">
+      { "imports": { "three": "./node_modules/three/build/three.module.js" } }
+    </script>
+    <script>
+      window.__timelines = window.__timelines || {};
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

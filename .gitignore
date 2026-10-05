@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Render output (use `npx hyperframes render` to regenerate)
+render/
+work-*
+.hf-transaction-*
+.hyperframes/
+.thumbnails/
+.waveform-cache/
+
+# Downloadable assets (use scripts/fetch-all.mjs to re-download)
+**/assets/tiles/
+**/assets/fonts/
+**/assets/music/
+site/shared/fonts/
+
+# OS / Editor / tooling
+.DS_Store
+*.log
+nohup.out
+.mimosa/
+.zcode/

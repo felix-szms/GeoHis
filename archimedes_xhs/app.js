@@ -1,0 +1,777 @@
+// 《阿基米德》小红书竖屏版 —— 泛化框架 + 知识博主排版扩展
+// 一切画面状态都是绝对时间 t 的纯函数：HyperFrames 逐帧 seek，无 rAF 循环
+import * as THREE from "three";
+
+const DATA = await (await fetch("data/stations.json")).json();
+const META = DATA.meta;
+const TIMING = META.timing;
+const W = META.canvas?.w || 1920;
+const H = META.canvas?.h || 1080;
+const CAMS = META.camScale || 1;      // 竖屏视场补偿：相机距离缩放
+
+// ---------- 交互模式（教学网页设 window.__INTERACTIVE = true） ----------
+// 视频渲染：电影运镜；互动网页：北向锁定上帝视角
+const TOP = !!window.__INTERACTIVE;
+// 站点所属旅程段：数据未写 leg 时按 legSplit 阈值推断（兼容玄奘数据）
+const legOf = (st) => st.leg || (st.id <= (META.legSplit ?? DATA.stations.length) ? "out" : "ret");
+
+// ---------- 时间轴布局（秒，来自 data.meta.timing） ----------
+const DUR = TIMING.dur;
+const T_OPEN_END = TIMING.openEnd;
+const T_J0 = TIMING.j0, T_J1 = TIMING.j1;
+const T_OV = TIMING.ov;
+const T_CR = TIMING.cr;
+const T_END = TIMING.end;
+const HOOK = TIMING.hook || [1.2, 3.4, T_OPEN_END - 2.4, T_OPEN_END - 0.4];
+const DWELL_MAJOR = TIMING.dwellMajor, DWELL_MINOR = TIMING.dwellMinor;
+const KM_SCALE = TIMING.kmScale;
+const ROUTE_IN = TIMING.routeIn || [2, 5];
+
+const TILE = 7;             // 地形/高程瓦片层级
+const PX = 256;
+const UNITS_PER_METER = 1 / 430;   // 高程纵向夸张系数
+
+// ---------- Web Mercator ----------
+const lngToX = (lng, z) => ((lng + 180) / 360) * Math.pow(2, z) * PX;
+const latToY = (lat, z) => {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * Math.pow(2, z) * PX;
+};
+const xToLng = (x, z) => (x / (PX * Math.pow(2, z))) * 360 - 180;
+const yToLat = (y, z) => {
+  const n = Math.PI - 2 * Math.PI * (y / (PX * Math.pow(2, z)));
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+};
+
+// 字体就绪后再进入构建：确保首帧起标题即为毛笔楷书
+await Promise.all([
+  document.fonts.load('100px "MaShanZheng"'),
+  document.fonts.load('400 20px "SourceHanSerif"'),
+  document.fonts.load('700 20px "SourceHanSerif"'),
+]).catch(() => {});
+
+// ---------- 场景基本 ----------
+const canvas = document.getElementById("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(W, H, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d0b08);
+scene.fog = new THREE.Fog(0x0d0b08, 900, 2600);
+
+const camera = new THREE.PerspectiveCamera(40, W / H, 1, 12000);
+
+scene.add(new THREE.AmbientLight(0xfff2dc, 0.88));
+const sun = new THREE.DirectionalLight(0xffdca8, 1.15);
+sun.position.set(-1, 0.9, -0.55);
+scene.add(sun);
+
+// ---------- 地形（z7 高程网格 + z8 卫星贴图） ----------
+const texLoader = new THREE.TextureLoader();
+const demData = new Map();
+
+function loadDem(x, y) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = c.height = PX;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      demData.set(`${x},${y}`, ctx.getImageData(0, 0, PX, PX).data);
+      res();
+    };
+    img.onerror = () => res();
+    img.src = `assets/tiles/dem/${TILE}/${x}/${y}.png`;
+  });
+}
+
+function heightAt(wx, wy) {
+  const tx = Math.floor(wx / PX), ty = Math.floor(wy / PX);
+  const d = demData.get(`${tx},${ty}`);
+  if (!d) return 0;
+  const fx = Math.min(PX - 1.001, wx - tx * PX), fy = Math.min(PX - 1.001, wy - ty * PX);
+  const ix = Math.floor(fx), iy = Math.floor(fy), rx = fx - ix, ry = fy - iy;
+  const px = iy * PX + ix;
+  const dec = (p) => (d[p] * 256 + d[p + 1] + d[p + 2] / 256) - 32768;
+  const h00 = dec(px * 4), h10 = dec((px + 1) * 4), h01 = dec((px + PX) * 4), h11 = dec((px + PX + 1) * 4);
+  const h = h00 * (1 - rx) * (1 - ry) + h10 * rx * (1 - ry) + h01 * (1 - rx) * ry + h11 * rx * ry;
+  return Math.max(-450, h) * UNITS_PER_METER;
+}
+
+const MANIFEST = await (await fetch("assets/tiles/manifest.json")).json();
+const { corridor } = MANIFEST;
+const TX0 = Math.floor(lngToX(corridor.west, TILE) / PX) - 1;
+const TX1 = Math.floor(lngToX(corridor.east, TILE) / PX) + 1;
+const TY0 = Math.floor(latToY(corridor.north, TILE) / PX) - 1;
+const TY1 = Math.floor(latToY(corridor.south, TILE) / PX) + 1;
+
+const promises = [];
+for (let x = TX0; x <= TX1; x++)
+  for (let y = TY0; y <= TY1; y++) promises.push(loadDem(x, y));
+await Promise.all(promises);
+
+const CX = (lngToX(corridor.west, TILE) + lngToX(corridor.east, TILE)) / 2;
+const CY = (latToY(corridor.north, TILE) + latToY(corridor.south, TILE)) / 2;
+
+const w2s = (lng, lat) => {
+  const wx = lngToX(lng, TILE) - CX;
+  const wy = latToY(lat, TILE) - CY;
+  return new THREE.Vector3(wx, 0, wy);
+};
+const lngToWorldX = (lng) => lngToX(lng, TILE);
+const latToWorldY = (lat) => latToY(lat, TILE);
+
+// ---------- 贴图（z8 四合一，缺失回退 z7，再缺失用深色材质） ----------
+function loadImg(src) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = src;
+  });
+}
+const texCache = new Map();
+async function awaitTileTexture(x, y) {
+  const key = `${x},${y}`;
+  if (texCache.has(key)) return texCache.get(key);
+  const imgs = await Promise.all([
+    loadImg(`assets/tiles/sat/8/${2 * x}/${2 * y}.jpg`),
+    loadImg(`assets/tiles/sat/8/${2 * x + 1}/${2 * y}.jpg`),
+    loadImg(`assets/tiles/sat/8/${2 * x}/${2 * y + 1}.jpg`),
+    loadImg(`assets/tiles/sat/8/${2 * x + 1}/${2 * y + 1}.jpg`),
+  ]);
+  let tex = null;
+  if (imgs.every(Boolean)) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const g = c.getContext("2d");
+    g.drawImage(imgs[0], 0, 0, 256, 256);
+    g.drawImage(imgs[1], 256, 0, 256, 256);
+    g.drawImage(imgs[2], 0, 256, 256, 256);
+    g.drawImage(imgs[3], 256, 256, 256, 256);
+    tex = new THREE.CanvasTexture(c);
+  } else {
+    const z7 = await loadImg(`assets/tiles/sat/${TILE}/${x}/${y}.jpg`);
+    if (z7) tex = new THREE.CanvasTexture(z7);
+  }
+  if (tex) {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+  }
+  texCache.set(key, tex);
+  return tex;
+}
+
+const SEGS = 32;
+for (let x = TX0; x <= TX1; x++) {
+  for (let y = TY0; y <= TY1; y++) {
+    const geo = new THREE.BufferGeometry();
+    const verts = [], uvs = [], idx = [];
+    for (let iy = 0; iy <= SEGS; iy++) {
+      for (let ix = 0; ix <= SEGS; ix++) {
+        const wx = x * PX + (ix / SEGS) * PX, wy = y * PX + (iy / SEGS) * PX;
+        verts.push(wx - CX, heightAt(wx, wy), wy - CY);
+        uvs.push(ix / SEGS, 1 - iy / SEGS);
+      }
+    }
+    for (let iy = 0; iy < SEGS; iy++) {
+      for (let ix = 0; ix < SEGS; ix++) {
+        const a = iy * (SEGS + 1) + ix, b = a + 1, c = a + SEGS + 1, d = c + 1;
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const tex = await awaitTileTexture(x, y);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex, roughness: 0.96, metalness: 0, color: tex ? 0xffffff : 0x1a150e,
+      emissive: 0x8a8fa6, emissiveMap: tex, emissiveIntensity: tex ? 0.8 : 0, // 海路题材：深海贴图提亮
+    });
+    scene.add(new THREE.Mesh(geo, mat));
+  }
+}
+
+// ---------- 路线 ----------
+function routePoints(list) {
+  return list.map(([lng, lat]) => {
+    const p = w2s(lng, lat);
+    p.y = heightAt(lngToWorldX(lng), latToWorldY(lat)) + 2.2;
+    return p;
+  });
+}
+const allPts = routePoints(DATA.routes.outbound).concat(
+  routePoints(DATA.routes.return).slice(1)
+);
+const curve = new THREE.CatmullRomCurve3(allPts, false, "centripetal", 0.5);
+// 关键：显式构建高分辨率弧长查找表，否则 u→位置 映射失真（默认仅 200 档）
+curve.arcLengthDivisions = 6000;
+curve.getLengths(6000);
+
+function makeRouteTube(radius, opacity, tailRate) {
+  const geo = new THREE.TubeGeometry(curve, 2400, radius, 8, false);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uProg: { value: 0 },
+      uOpacity: { value: opacity },
+      uTail: { value: tailRate },
+      uColor: { value: new THREE.Color(0xffca6a) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      uniform float uProg; uniform float uOpacity; uniform float uTail; uniform vec3 uColor;
+      varying vec2 vUv;
+      void main(){
+        float d = uProg - vUv.x;
+        if (d < 0.0) discard;
+        float a = 0.42 + 0.58 * exp(-d * uTail);
+        gl_FragColor = vec4(uColor, a * uOpacity);
+      }`,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 5;
+  scene.add(mesh);
+  return mat;
+}
+const tubeCore = makeRouteTube(0.55, 1.0, 0.045);
+const tubeGlow = makeRouteTube(1.9, 0.40, 0.012);
+
+// 路线包围盒 → 总览相机参数（自适应题材与画幅）
+const routeBBox = new THREE.Box3().setFromPoints(allPts);
+const bboxCenter = routeBBox.getCenter(new THREE.Vector3());
+const bboxSize = routeBBox.getSize(new THREE.Vector3());
+const HFIZ = 2 * Math.atan(Math.tan((40 * Math.PI) / 360) * (W / H));
+const OV_DIST = Math.max(
+  bboxSize.x / (2 * Math.tan(HFIZ / 2)),
+  bboxSize.z / (2 * Math.tan((40 * Math.PI) / 360))
+) * (META.ovMargin || 1.42);
+
+function glowTexture(inner, outer) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const rg = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  rg.addColorStop(0, inner);
+  rg.addColorStop(0.35, outer);
+  rg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = rg;
+  g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const headTex = glowTexture("rgba(255,252,238,1)", "rgba(255,190,90,0.55)");
+const dotTex = glowTexture("rgba(255,240,210,1)", "rgba(255,180,80,0.4)");
+
+const headGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: headTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+headGlow.scale.setScalar(15);
+headGlow.renderOrder = 8;
+scene.add(headGlow);
+
+const stationPos = DATA.stations.map((st) => {
+  const p = w2s(st.lng, st.lat);
+  p.y = heightAt(lngToWorldX(st.lng), latToWorldY(st.lat)) + 4;
+  return p;
+});
+const stationSprites = DATA.stations.map((st, i) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+  s.scale.setScalar(5.5);
+  s.renderOrder = 7;
+  s.position.copy(stationPos[i]);
+  scene.add(s);
+  return s;
+});
+
+// ---------- 站点在曲线上的参数 u（按 leg 分段最近点搜索，保证单调） ----------
+const SAMPLES = 4000;
+const uOf = new Float32Array(SAMPLES + 1);
+for (let i = 0; i <= SAMPLES; i++) uOf[i] = i / SAMPLES;
+function nearestU(pos, lo = 0, hi = 1) {
+  let best = lo, bd = Infinity;
+  const i0 = Math.floor(lo * SAMPLES), i1 = Math.ceil(hi * SAMPLES);
+  for (let i = i0; i <= i1; i++) {
+    const u = uOf[i];
+    const p = curve.getPointAt(u);
+    const dd = p.distanceToSquared(pos);
+    if (dd < bd) { bd = dd; best = u; }
+  }
+  return best;
+}
+// 分界 u：去程终点（=归程起点）
+const outboundEndPos = w2s(
+  DATA.routes.outbound[DATA.routes.outbound.length - 1][0],
+  DATA.routes.outbound[DATA.routes.outbound.length - 1][1]
+);
+const uDivider = nearestU(outboundEndPos);
+const stationU = [];
+{
+  let prev = 0;
+  DATA.stations.forEach((st, i) => {
+    const lo = legOf(st) === "out" ? prev : Math.max(prev, uDivider - 1e-4);
+    const hi = legOf(st) === "out" ? Math.min(1, uDivider + 1e-4) : 1;
+    const u = nearestU(stationPos[i], lo, hi);
+    stationU.push(u);
+    prev = u;
+  });
+}
+
+// 里程（haversine × 蜿蜒系数）
+function kmBetween(a, b) {
+  const R = 6371, toR = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * toR, dLng = (b[0] - a[0]) * toR;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * toR) * Math.cos(b[1] * toR) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+const kmTrack = [];
+{
+  let acc = 0;
+  const all = DATA.routes.outbound.concat(DATA.routes.return.slice(1));
+  kmTrack.push(0);
+  for (let i = 1; i < all.length; i++) { acc += kmBetween(all[i - 1], all[i]); kmTrack.push(acc); }
+}
+const TOTAL_KM = Math.round(kmTrack[kmTrack.length - 1] * KM_SCALE);
+
+// ---------- 站点到达时间表 ----------
+// segEqual=true（快节奏竖屏）：站间等时长，配合 dwell 形成均匀节奏
+// 否则按曲线距离比例分配（纪录片长片节奏）
+const dwells = DATA.stations.map((st) => (st.major ? DWELL_MAJOR : DWELL_MINOR));
+const TK = (() => {
+  const span = T_J1 - T_J0 - dwells.reduce((a, b) => a + b, 0);
+  let w;
+  if (TIMING.segEqual) {
+    w = [0, ...DATA.stations.slice(1).map(() => 1)]; // w[0] 占位对齐索引
+  } else {
+    w = [0];
+    for (let k = 1; k < stationU.length; k++) w.push(stationU[k] - stationU[k - 1]);
+  }
+  const wSum = w.reduce((a, b) => a + b, 0) || 1;
+  const tk = [T_J0];
+  for (let k = 1; k < stationU.length; k++) {
+    tk.push(tk[k - 1] + (w[k] / wSum) * span + dwells[k - 1]);
+  }
+  return tk;
+})();
+
+// ---------- DOM 注入（题材文案全部来自 data） ----------
+const $ = (id) => document.getElementById(id);
+const el = {
+  title: $("titlecard"), titleMain: $("title-main"), titleSub: $("title-sub"),
+  titleSubEn: $("title-sub-en"), titleEra: $("title-era"), titleFoot: $("title-foot"),
+  card: $("stationcard"), cardNo: $("card-no"), cardCoord: $("card-coord"),
+  cardArt: $("card-art"), cardTitle: $("card-title"), cardName: $("card-name"),
+  cardModern: $("card-modern"), cardText: $("card-text"), cardKm: $("card-km"),
+  caption: $("caption"),
+  endcard: $("endcard"),
+  hud: $("hud"), hudCoord: $("hud-coord"), hudKm: $("hud-km"), hudBar: $("hud-bar"),
+  topright: $("topright"), trNum: $("tr-num"), trRegion: $("tr-region"),
+  topleft: $("topleft"), tlEra: $("tl-era"), tlMark: $("tl-mark"), tlWm: $("tl-wm"),
+  labels: $("labels"), overview: $("overview"), ovH1: $("ov-h1"), ovEra: $("ov-era"),
+  stats: $("stats"), credits: $("credits"), fade: $("fade"),
+};
+
+el.titleMain.textContent = META.title;
+el.titleSub.textContent = META.subtitle;
+el.titleSubEn.textContent = META.subtitleEn;
+el.titleEra.textContent = META.era;
+el.titleFoot.textContent = META.foot;
+el.tlMark.textContent = META.mark;
+el.tlWm.textContent = META.watermark;
+el.ovH1.innerHTML = `${META.ending.headline1}<br />${META.ending.headline2}`;
+el.ovEra.textContent = META.ending.eraLine;
+if (el.endcard) {
+  el.endcard.querySelector(".end-big").textContent = META.endcard.big;
+  el.endcard.querySelector(".end-lines").innerHTML = META.endcard.lines.map((x) => `<p>${x}</p>`).join("");
+  el.endcard.querySelector(".end-credit").textContent = META.endcard.credit;
+}
+if (el.credits) {
+  el.credits.innerHTML = `
+    <h1>${META.title}</h1>
+    <div class="cols">
+      <div class="col">
+        <h3>地图数据</h3>
+        ${META.credits.map.map((x) => `<p>${x}</p>`).join("")}
+      </div>
+      <div class="col">
+        <h3>图像</h3>
+        ${META.credits.images.map((x) => `<p>${x}</p>`).join("")}
+      </div>
+      <div class="col">
+        <h3>音乐与字体</h3>
+        ${META.credits.musicFonts.map((x) => `<p>${x}</p>`).join("")}
+        <h3>文献</h3>
+        ${META.credits.texts.map((x) => `<p>${x}</p>`).join("")}
+      </div>
+    </div>
+    <p class="rend">${META.credits.render}</p>`;
+}
+
+const labelEls = DATA.stations.map((st) => {
+  const d = document.createElement("div");
+  d.className = "lbl" + (st.id % 2 === 0 ? " flip" : "");
+  d.innerHTML = `<div class="nm">${st.name}</div><div class="sub">${st.modern}</div>`;
+  el.labels.appendChild(d);
+  return d;
+});
+const wpEls = (DATA.waypointLabels || []).map((wp) => {
+  const d = document.createElement("div");
+  d.className = "lbl wp";
+  d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  el.labels.appendChild(d);
+  return d;
+});
+const tagEls = (DATA.tags || []).map((tg) => {
+  const d = document.createElement("div");
+  d.className = "tag";
+  d.textContent = tg.label;
+  el.labels.appendChild(d);
+  return d;
+});
+const wpPos = (DATA.waypointLabels || []).map((wp) => {
+  const p = w2s(wp.lng, wp.lat);
+  p.y = heightAt(lngToWorldX(wp.lng), latToWorldY(wp.lat)) + 5;
+  return p;
+});
+const tagPos = (DATA.tags || []).map((tg) => {
+  const p = w2s(tg.lng, tg.lat);
+  p.y = heightAt(lngToWorldX(tg.lng), latToWorldY(tg.lat)) + 6;
+  return p;
+});
+
+el.stats.innerHTML = META.ending.stats
+  .map(
+    (s, i) => `
+  <div class="stat">
+    <div class="stat-num"><span id="stat-n${i}">0</span>${s.unit}</div>
+    <div class="stat-desc">${s.desc}</div>
+  </div>`
+  )
+  .join("");
+const statNums = META.ending.stats.map((_, i) => $("stat-n" + i));
+
+// ---------- 工具 ----------
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const sstep = (a, b, x) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+const lerp = (a, b, t) => a + (b - a) * t;
+const eraText = (st) => {
+  const y = st.year;
+  const leg = META.eraLegLabels[legOf(st) === "out" ? 0 : 1] || "";
+  return y < 0 ? `公元前 ${-y} 年 · ${leg}` : `${y} 年 · ${leg}`;
+};
+
+function uAt(t) {
+  if (t <= TK[0]) return stationU[0];
+  if (t >= TK[TK.length - 1]) return stationU[stationU.length - 1];
+  let k = 1;
+  while (k < TK.length && TK[k] < t) k++;
+  const t0 = TK[k - 1], t1 = TK[k];
+  const s = clamp01((t - t0) / (t1 - t0));
+  const e = s * s * (3 - 2 * s);
+  return lerp(stationU[k - 1], stationU[k], e);
+}
+function segAt(t) {
+  let k = 0;
+  while (k < TK.length - 1 && t >= TK[k + 1]) k++;
+  return k;
+}
+
+// ---------- 相机 ----------
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+const vTmp = new THREE.Vector3(), vTmp2 = new THREE.Vector3();
+
+function updateCamera(t, u) {
+  const head = curve.getPointAt(clamp01(u));
+  const ahead = curve.getPointAt(clamp01(Math.min(u + 0.006, 1)));
+
+  // 开场：高空缓移（中心与参数来自 data.meta.openCamera）
+  // 教学模式：北向锁定、正南偏北俯视、半径固定（seek 到任意 t 都成立）
+  const oc = META.openCamera;
+  const oTarget = w2s(oc.lng, oc.lat);
+  oTarget.y = heightAt(lngToWorldX(oc.lng), latToWorldY(oc.lat));
+  const tOpen = Math.min(t, T_OPEN_END);
+  const oR = (TOP ? 1500 : Math.max(420, 620 - tOpen * 8)) * CAMS;
+  const oAz = TOP ? 0 : -2.2 + tOpen * 0.012;
+  const oPos = TOP
+    ? new THREE.Vector3(oTarget.x, oTarget.y + oR * Math.sin(0.98), oTarget.z + oR * Math.cos(0.98))
+    : new THREE.Vector3(
+        oTarget.x + Math.cos(oAz) * oR * 0.55,
+        oTarget.y + oR * 0.75,
+        oTarget.z + Math.sin(oAz) * oR * 0.55
+      );
+
+  // 旅程跟拍（教学模式：相机始终位于路线头点正南方，画面上方即北）
+  const pulse = Math.max(
+    0,
+    ...DATA.stations.map((st, i) =>
+      st.major ? Math.exp(-Math.pow((t - TK[i]) / 2.6, 2)) * (i === 0 ? 0 : 1) : 0
+    )
+  );
+  const az = TOP ? 0 : -1.1 + u * 2.6 + 0.14 * Math.sin(t * 0.05);
+  const el2 = TOP ? 0.96 : 0.98 + 0.16 * Math.sin(u * 8.2);
+  let R = (TOP
+    ? 255 + 25 * Math.sin(u * 12.3) - pulse * 45
+    : 215 + 55 * Math.sin(u * 15.7 + 2.1) - pulse * 58) * CAMS;
+  R = Math.max((TOP ? 150 : 110) * CAMS, R);
+  const jPos = new THREE.Vector3(
+    head.x + Math.cos(az) * R * Math.cos(el2),
+    head.y + R * Math.sin(el2),
+    head.z + Math.sin(az) * R * Math.cos(el2)
+  );
+  const ground = heightAt(head.x + CX, head.z + CY);
+  if (jPos.y < ground + 55 * CAMS) jPos.y = ground + 55 * CAMS;
+  const jLook = vTmp.copy(head).lerp(ahead, 0.45); jLook.y += 3;
+
+  // 总览：包围盒自适应的近正俯视地图视角
+  const cTarget = bboxCenter.clone();
+  cTarget.x -= bboxSize.x * 0.09;
+  const oR2 = OV_DIST;
+  const ovAz = 0.05 * Math.sin(t * 0.04);
+  const ovPos = new THREE.Vector3(
+    cTarget.x + oR2 * (0.16 * Math.cos(ovAz) - 0.10 * Math.sin(ovAz)),
+    oR2 * 0.985,
+    cTarget.z + oR2 * (0.16 * Math.sin(ovAz) + 0.10 * Math.cos(ovAz))
+  );
+  const ovLook = cTarget;
+
+  const m1 = sstep(T_OPEN_END - 2.2, T_OPEN_END + 1.5, t); // 开场→跟拍
+  const m2 = window.__FORCE_OVERVIEW ? 1 : sstep(T_OV - 1.5, T_OV + 7.5, t); // 跟拍→总览（互动可强制）
+  const a = vTmp2.copy(oPos).lerp(jPos, m1);
+  const la = new THREE.Vector3().copy(oTarget).lerp(jLook, m1);
+  camPos.copy(a).lerp(ovPos, m2);
+  camLook.copy(la).lerp(ovLook, m2);
+  if (t > T_CR + 3) camPos.lerp(vTmp.copy(camLook).add(new THREE.Vector3(0, 60, -40)), sstep(T_CR + 3, DUR, t));
+
+  camera.position.copy(camPos);
+  // 俯视时 up 向量从 (0,1,0) 转到 (0,0,-1)，保证地图北向朝上不滚转
+  camera.up.set(0, 1 - m2, -m2).normalize();
+  camera.lookAt(camLook);
+  camera.updateMatrixWorld(); // 立即同步矩阵：标签投影不能等 renderer 帧末更新
+  // 总览时雾淡出，避免远景被吞
+  scene.fog.near = lerp(900, 5200, m2);
+  scene.fog.far = lerp(2600, 14000, m2);
+}
+
+// ---------- 画面更新 ----------
+let lastCardStation = -1;
+
+function projectToScreen(pos) {
+  const v = pos.clone().project(camera);
+  if (v.z > 1) return null;
+  return { x: (v.x * 0.5 + 0.5) * W, y: (1 - (v.y * 0.5 + 0.5)) * H };
+}
+
+function setLabel(d, pos, opacity, hide = false, dx = 0, dy = 0) {
+  if (hide || opacity <= 0.01) { d.style.opacity = "0"; return; }
+  const s = projectToScreen(pos);
+  // 屏边裁剪：锚点距边缘不足 40px 的标签整条隐藏（文字向右上方伸展，贴边必残缺）
+  if (!s || s.x < 40 || s.x > W - 40 || s.y < 40 || s.y > H - 40) { d.style.opacity = "0"; return; }
+  d.style.transform = `translate(${(s.x + dx).toFixed(1)}px, ${(s.y + dy).toFixed(1)}px)`;
+  d.style.opacity = opacity.toFixed(3);
+}
+
+let __lastErr = null;
+function update(t) {
+  try {
+    updateInner(t);
+  } catch (e) {
+    if (String(e) !== String(__lastErr)) {
+      __lastErr = e;
+      console.error("[update]", e);
+    }
+  }
+  window.__LASTERR = __lastErr ? String(__lastErr) : null;
+}
+
+function updateInner(t) {
+  const u = t < T_J0 ? 0 : t > T_J1 ? 1 : uAt(t);
+
+  tubeCore.uniforms.uProg.value = u;
+  tubeGlow.uniforms.uProg.value = u;
+  const head = curve.getPointAt(clamp01(u));
+  headGlow.position.copy(head);
+  const routeMatOpacity = t < ROUTE_IN[0] ? 0 : sstep(ROUTE_IN[0], ROUTE_IN[1], t);
+  tubeCore.uniforms.uOpacity.value = 1.0 * routeMatOpacity;
+  tubeGlow.uniforms.uOpacity.value = 0.40 * routeMatOpacity;
+  headGlow.material.opacity = routeMatOpacity;
+
+  updateCamera(t, u);
+
+  const inOverview = t >= T_OV - 4;
+  const dim = t > T_CR + 1 ? 1 - sstep(T_CR + 1, T_CR + 3, t) : 1;
+  DATA.stations.forEach((st, i) => {
+    const passed = u >= stationU[i] - 0.0005;
+    const fade = sstep(stationU[i] - 0.008, stationU[i] - 0.001, u);
+    stationSprites[i].material.opacity = (passed ? 0.95 : fade * 0.9) * routeMatOpacity * dim;
+    const op = inOverview
+      ? sstep(T_OV - 4 + i * 0.06, T_OV - 2 + i * 0.06, t) * dim
+      : fade * dim * routeMatOpacity;
+    setLabel(labelEls[i], stationPos[i], t < T_J0 ? 0 : op,
+      st.labelOnMap === false, st.labelDx || 0, st.labelDy || 0);
+  });
+  wpEls.forEach((d, i) => {
+    const op = inOverview ? dim * 0.85 : 0;
+    setLabel(d, wpPos[i], op);
+  });
+  tagEls.forEach((d, i) => {
+    const op = inOverview ? dim : 0;
+    setLabel(d, tagPos[i], op);
+  });
+
+  // HUD
+  if (el.hud) {
+    const showHud = sstep(T_J0 - 2, T_J0 + 2, t) * (1 - sstep(T_OV - 1.2, T_OV + 0.5, t));
+    el.hud.style.opacity = showHud.toFixed(3);
+    if (showHud > 0.01) {
+      const lat = yToLat(head.z + CY, TILE), lng = xToLng(head.x + CX, TILE);
+      el.hudCoord.textContent = `N ${lat.toFixed(2)}°  ·  E ${lng.toFixed(2)}°`;
+      const km = Math.round(u * TOTAL_KM);
+      el.hudKm.textContent = km.toLocaleString("en-US");
+      el.hudBar.style.width = `${(u * 100).toFixed(2)}%`;
+    }
+  }
+
+  // 右上 STATION
+  const showTr = sstep(T_J0 - 2, T_J0 + 2, t) * (1 - sstep(T_OV - 1.2, T_OV + 0.5, t));
+  el.topright.style.opacity = showTr.toFixed(3);
+  if (showTr > 0.01) {
+    const idx = Math.min(DATA.stations.length, segAt(t) + 1);
+    const st = DATA.stations[idx - 1];
+    el.trNum.innerHTML = `${String(idx).padStart(2, "0")}<span class="of">/${DATA.stations.length}</span>`;
+    el.trRegion.textContent = st.region;
+  }
+
+  // 左上 年代（总览段隐藏，避免穿越感）
+  const showTl = sstep(T_J0 - 2, T_J0 + 2, t) * (1 - sstep(T_OV - 1.5, T_OV + 0.5, t)) * (1 - sstep(T_CR, T_CR + 1, t));
+  el.topleft.style.opacity = showTl.toFixed(3);
+  if (showTl > 0.01) {
+    const st = DATA.stations[segAt(t)];
+    el.tlEra.textContent = eraText(st);
+  }
+
+  // 站点卡片 + 冷知识字幕
+  let active = -1, cardOp = 0;
+  const CARD_HOLD = TIMING.cardHold ?? DWELL_MAJOR + 1.2;
+  for (let i = 0; i < DATA.stations.length; i++) {
+    const st = DATA.stations[i];
+    if (!st.major) continue;
+    const t0 = TK[i], t1 = TK[i] + CARD_HOLD;
+    if (t >= t0 && t <= t1) {
+      active = i;
+      cardOp = sstep(t0, t0 + 0.5, t) * (1 - sstep(t1 - 0.4, t1, t));
+      break;
+    }
+  }
+  if (active >= 0) {
+    if (lastCardStation !== active) {
+      lastCardStation = active;
+      const st = DATA.stations[active];
+      el.cardNo.textContent = `第 ${String(st.id).padStart(2, "0")} 站`;
+      const bc = st.year < 0 ? `前${-st.year}年` : `${st.year}年`;
+      el.cardCoord.textContent = `${st.lat.toFixed(2)}°N · ${st.lng.toFixed(2)}°E`;
+      el.cardTitle.textContent = st.title;
+      el.cardName.textContent = st.name;
+      el.cardModern.textContent = `${st.modern} · ${bc}`;
+      el.cardText.textContent = st.text;
+      if (st.art) {
+        el.cardArt.src = st.art;
+        el.cardArt.style.display = "block";
+      } else {
+        el.cardArt.style.display = "none";
+      }
+      if (el.caption) el.caption.textContent = st.note || "";
+    }
+    el.card.style.opacity = cardOp.toFixed(3);
+    el.card.style.transform = `translateY(${(1 - cardOp) * 36}px)`;
+    if (el.caption) el.caption.style.opacity = (cardOp * (DATA.stations[active].note ? 1 : 0)).toFixed(3);
+  } else {
+    el.card.style.opacity = "0";
+    if (el.caption) el.caption.style.opacity = "0";
+  }
+
+  // 钩子题卡（时序来自 data.meta.timing.hook）
+  const tOp = sstep(HOOK[0], HOOK[1], t) * (1 - sstep(HOOK[2], HOOK[3], t));
+  el.title.style.opacity = tOp.toFixed(3);
+  el.titleMain.style.letterSpacing = `${(0.32 + (1 - sstep(HOOK[0], HOOK[1] + 1.1, t)) * 0.25).toFixed(3)}em`;
+  el.title.style.transform = `translateY(${(1 - tOp) * 14}px)`;
+
+  // 总览 + 统计
+  const ovOp = sstep(T_OV - 0.8, T_OV + 3.2, t);
+  el.overview.style.opacity = ovOp.toFixed(3);
+  const statsOp = sstep(T_OV + 2, T_OV + 4, t);
+  el.stats.style.opacity = statsOp.toFixed(3);
+  el.stats.style.transform = `translateX(${(1 - statsOp) * 50}px)`;
+  const cnt = sstep(T_OV + 2.6, T_OV + 2.6 + (TIMING.statsCount || 5), t);
+  META.ending.stats.forEach((s, i) => {
+    statNums[i].textContent = Math.round(s.num * cnt).toLocaleString("en-US");
+  });
+
+  // credits（可选元素；竖屏版用 endcard 替代）
+  if (el.credits) {
+    const crOp = sstep(T_CR + 0.8, T_CR + 2.5, t);
+    el.credits.style.opacity = crOp.toFixed(3);
+  }
+  // 结尾卡（知识博主引导）
+  if (el.endcard) {
+    const endOp = sstep(T_END, T_END + 1.2, t);
+    el.endcard.style.opacity = endOp.toFixed(3);
+  }
+  el.fade.style.opacity = sstep(DUR - 1.8, DUR - 0.2, t).toFixed(3);
+
+  renderer.render(scene, camera);
+}
+
+// ---------- GSAP 主时间轴 ----------
+const state = { t: 0 };
+function render() { update(state.t); }
+
+const tl = gsap.timeline({ paused: true });
+tl.to(state, { t: DUR, duration: DUR, ease: "none", onUpdate: render }, 0);
+
+window.__timelines = window.__timelines || {};
+window.__timelines["main"] = tl;
+window.__DBG = { camera, scene, renderer, curve, stationU, TK, CX, CY, stationPos, nearestU, state, update, head: () => curve.getPointAt(clamp01(state.t < T_J0 ? 0 : uAt(state.t))) };
+
+// ---------- 交互控制接口（interactive.js 使用；视频渲染不触碰） ----------
+window.APP = {
+  DUR, T_OPEN_END, T_OV, T_CR,
+  TK,
+  stations: DATA.stations.map((s) => ({ id: s.id, name: s.name, modern: s.modern, year: s.year, major: !!s.major })),
+  title: META.title,
+  get t() { return state.t; },
+  seek(t) {
+    gsap.killTweensOf(state);
+    state.t = Math.min(DUR, Math.max(0, t));
+    update(state.t);
+  },
+  advance(dt) {
+    gsap.killTweensOf(state);
+    state.t = Math.min(DUR, state.t + dt);
+    update(state.t);
+    return state.t >= DUR - 1e-3;
+  },
+  flyTo(t, dur = 1.8, onUpdate) {
+    gsap.killTweensOf(state);
+    gsap.to(state, {
+      t: Math.min(DUR, Math.max(0, t)), duration: dur, ease: "power2.inOut",
+      onUpdate: () => { update(state.t); onUpdate && onUpdate(); },
+    });
+  },
+  setOverview(b) { window.__FORCE_OVERVIEW = !!b; update(state.t); },
+  isOverview() { return !!window.__FORCE_OVERVIEW; },
+  stationAt(t) {
+    const st = DATA.stations[segAt(t)];
+    return { id: st.id, name: st.name, modern: st.modern, year: st.year };
+  },
+};
+tl.seek(0);
+render();

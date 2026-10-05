@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>张骞出使西域 · 互动课堂</title>
+    <script src="./assets/vendor/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "MaShanZheng";
+        src: url("./assets/fonts/MaShanZheng-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Regular.otf") format("opentype");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "SourceHanSerif";
+        src: url("./assets/fonts/SourceHanSerifCN-Bold.otf") format("opentype");
+        font-weight: 700;
+      }
+      @font-face { font-family: "Songti SC"; src: local("Songti SC"), local("STSong"); }
+      @font-face { font-family: "Kaiti SC"; src: local("Kaiti SC"), local("STKaiti"); }
+      @font-face { font-family: "STKaiti"; src: local("STKaiti"); }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0; width: 100%; height: 100%; overflow: hidden;
+        background: #0d0b08;
+        font-family: "SourceHanSerif", "Songti SC", serif;
+      }
+      #root { position: relative; width: 1920px; height: 1080px; transform-origin: top left; }
+      .clip { position: absolute; inset: 0; }
+
+      #stage canvas { width: 100%; height: 100%; display: block; }
+      #grade {
+        position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        background:
+          radial-gradient(ellipse 130% 100% at 50% 42%, rgba(0,0,0,0) 55%, rgba(5,3,1,0.6) 100%),
+          linear-gradient(rgba(18,11,4,0.17), rgba(18,11,4,0.17));
+        mix-blend-mode: multiply;
+      }
+      #warm {
+        position: absolute; inset: 0; pointer-events: none; z-index: 3;
+        background: radial-gradient(ellipse 120% 90% at 50% 45%, rgba(255,180,80,0.05), rgba(120,60,10,0.10) 85%);
+      }
+
+      #titlecard {
+        position: absolute; inset: 0; z-index: 10; opacity: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none;
+      }
+      #title-era {
+        color: #c9b98f; font-size: 21px; letter-spacing: 0.5em; margin-bottom: 34px;
+        text-shadow: 0 0 22px rgba(0,0,0,0.9);
+      }
+      #title-main {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e6c0; font-size: 176px; font-weight: 400; line-height: 1;
+        letter-spacing: 0.32em; text-indent: 0.32em;
+        text-shadow: 0 4px 40px rgba(0,0,0,0.85), 0 0 90px rgba(255,190,90,0.12);
+      }
+      #title-sub {
+        margin-top: 44px; color: #d8c9a2; font-size: 30px; letter-spacing: 0.42em; text-indent: 0.42em;
+      }
+      #title-sub-en {
+        margin-top: 16px; color: #8d8069; font-size: 14px; letter-spacing: 0.34em; text-indent: 0.34em;
+        font-family: Georgia, serif;
+      }
+      #title-foot {
+        position: absolute; bottom: 34px; color: #6f6650; font-size: 15px; letter-spacing: 0.14em;
+      }
+
+      #stationcard {
+        position: absolute; right: 64px; top: 158px; width: 470px; z-index: 10; opacity: 0;
+        background: rgba(14, 11, 8, 0.86);
+        border: 1px solid rgba(206, 166, 92, 0.32);
+        box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+        padding: 26px 30px 30px;
+        pointer-events: none;
+      }
+      #card-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        border-bottom: 1px solid rgba(206,166,92,0.22); padding-bottom: 12px;
+      }
+      #card-no { color: #e8d9a0; font-size: 19px; letter-spacing: 0.3em; font-weight: 700; }
+      #card-coord { color: #8a7f66; font-size: 14px; letter-spacing: 0.06em; font-family: Georgia, serif; }
+      #card-art {
+        display: block; width: 100%; height: 190px; object-fit: cover; margin-top: 18px;
+        filter: sepia(0.35) saturate(0.8) contrast(1.05) brightness(0.92);
+        border: 1px solid rgba(206,166,92,0.18);
+      }
+      #card-title {
+        font-family: "MaShanZheng", "Kaiti SC", "STKaiti", serif;
+        color: #f3e2b3; font-size: 66px; font-weight: 400; line-height: 1.15; margin-top: 18px;
+        text-shadow: 0 2px 18px rgba(0,0,0,0.6);
+      }
+      #card-name-row { margin-top: 8px; display: flex; align-items: baseline; gap: 14px; }
+      #card-name { color: #e0cf9f; font-size: 24px; font-weight: 700; letter-spacing: 0.12em; }
+      #card-modern { color: #8a7f66; font-size: 15px; letter-spacing: 0.06em; }
+      #card-text {
+        margin-top: 18px; color: #cfc4ae; font-size: 16.5px; line-height: 1.95;
+        text-align: justify; letter-spacing: 0.03em;
+      }
+
+      #hud {
+        position: absolute; left: 70px; bottom: 64px; z-index: 10; opacity: 0; pointer-events: none;
+      }
+      #hud-coord { color: #b8ab8d; font-size: 17px; letter-spacing: 0.08em; font-family: Georgia, serif; }
+      #hud-km-row { margin-top: 10px; display: flex; align-items: baseline; gap: 12px; }
+      #hud-km { color: #ecd9a4; font-size: 42px; font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgba(0,0,0,0.7); }
+      #hud-km-unit { color: #9b8f74; font-size: 17px; letter-spacing: 0.3em; }
+      #hud-track { margin-top: 14px; width: 300px; height: 3px; background: rgba(210,180,120,0.18); }
+      #hud-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #8a6a30, #f0cd7e); box-shadow: 0 0 10px rgba(240,205,126,0.8); }
+
+      #topright {
+        position: absolute; right: 70px; top: 44px; z-index: 10; opacity: 0;
+        text-align: right; pointer-events: none;
+      }
+      #topright .st-word { color: #7d7259; font-size: 14px; letter-spacing: 0.5em; font-family: Georgia, serif; }
+      #tr-num { color: #ecd9a4; font-size: 44px; font-weight: 700; line-height: 1.1; }
+      #tr-num .of { font-size: 20px; color: #8a7f66; font-weight: 400; margin-left: 4px; }
+      #tr-region { margin-top: 4px; color: #b3a582; font-size: 18px; letter-spacing: 0.22em; }
+
+      #topleft {
+        position: absolute; left: 70px; top: 44px; z-index: 10; opacity: 0; pointer-events: none;
+        display: flex; align-items: center; gap: 16px;
+      }
+      #topleft .mark {
+        width: 34px; height: 34px; border: 1px solid rgba(206,166,92,0.5); color: #e0cf9f;
+        font-family: "MaShanZheng", serif; font-size: 19px; display: flex; align-items: center; justify-content: center;
+      }
+      #tl-era { color: #c9b98f; font-size: 19px; letter-spacing: 0.24em; }
+      #topleft .wm { color: #6f6650; font-size: 14px; letter-spacing: 0.3em; border-left: 1px solid rgba(160,140,100,0.35); padding-left: 16px; }
+
+      #labels { position: absolute; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+      .lbl { position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+      .lbl .nm {
+        color: #f7eed8; font-size: 21px; letter-spacing: 0.14em; font-weight: 700;
+        text-shadow: 0 0 12px rgba(0,0,0,0.98), 0 0 26px rgba(0,0,0,0.9), 0 1px 2px rgba(0,0,0,1);
+        transform: translate(12px, -34px); white-space: nowrap;
+      }
+      .lbl.flip .nm { transform: translate(12px, 6px); }
+      .lbl.flip .sub { transform: translate(12px, 8px); }
+      .lbl .sub {
+        color: #97896b; font-size: 13px; letter-spacing: 0.1em; margin-top: 2px;
+        transform: translate(12px, -30px); white-space: nowrap;
+        text-shadow: 0 0 8px rgba(0,0,0,0.95);
+      }
+      .lbl.wp .nm { color: #a89a78; font-size: 15px; transform: translate(8px, -22px); }
+      .tag {
+        position: absolute; left: 0; top: 0; opacity: 0; will-change: transform, opacity;
+        background: rgba(122, 32, 22, 0.88); border: 1px solid rgba(255, 160, 130, 0.4);
+        color: #f2d9c8; font-size: 13.5px; letter-spacing: 0.1em; padding: 4px 10px;
+        transform: translate(-50%, 8px); white-space: nowrap;
+      }
+
+      #overview {
+        position: absolute; inset: 0; z-index: 10; opacity: 0; pointer-events: none;
+        background: linear-gradient(90deg, rgba(8,6,4,0) 46%, rgba(8,6,4,0.78) 60%);
+      }
+      #ov-head {
+        position: absolute; right: 88px; top: 110px; text-align: right; width: 560px;
+      }
+      #ov-h1 {
+        font-family: "MaShanZheng", "Kaiti SC", serif; color: #f3e6c0; font-size: 92px; line-height: 1.1;
+        text-shadow: 0 3px 26px rgba(0,0,0,0.8);
+      }
+      #ov-era { color: #c9b98f; font-size: 20px; letter-spacing: 0.24em; margin-top: 14px; }
+      #stats {
+        position: absolute; right: 88px; top: 360px; width: 560px; opacity: 0;
+      }
+      .stat { border-top: 1px solid rgba(206,166,92,0.22); padding: 18px 4px 16px; display: flex; align-items: baseline; justify-content: space-between; }
+      .stat-num { color: #ecd9a4; font-size: 52px; font-weight: 700; text-shadow: 0 2px 16px rgba(0,0,0,0.7); }
+      .stat-desc { color: #8a7f66; font-size: 16px; letter-spacing: 0.3em; }
+
+      #credits {
+        position: absolute; inset: 0; z-index: 12; opacity: 0; background: #0a0806;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        pointer-events: none;
+      }
+      #credits h1 {
+        font-family: "MaShanZheng", serif; color: #f3e6c0; font-size: 84px; font-weight: 400;
+        letter-spacing: 0.3em; margin-bottom: 60px;
+      }
+      #credits .cols { display: flex; gap: 90px; }
+      #credits .col h3 { color: #b3a582; font-size: 19px; letter-spacing: 0.3em; margin: 26px 0 12px; font-weight: 700; }
+      #credits .col p { color: #8a8069; font-size: 15px; line-height: 1.9; letter-spacing: 0.03em; }
+      #credits .rend { margin-top: 56px; color: #6f6650; font-size: 14px; letter-spacing: 0.2em; font-family: Georgia, serif; }
+
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 20; pointer-events: none; }
+
+      /* ================= 互动控件层 ================= */
+      #ui { position: absolute; inset: 0; z-index: 30; pointer-events: none; font-size: 15px; }
+      #ui > * { pointer-events: auto; }
+
+      .btn {
+        appearance: none; border: 1px solid rgba(206,166,92,0.45); background: rgba(14,11,8,0.85);
+        color: #e0cf9f; font-family: inherit; font-size: 15px; letter-spacing: 0.12em;
+        padding: 8px 16px; cursor: pointer; transition: all .18s ease; user-select: none;
+      }
+      .btn:hover { background: rgba(58,46,26,0.9); color: #f3e2b3; border-color: rgba(240,205,126,0.8); }
+      .btn.active { background: rgba(96,74,36,0.95); color: #f7e6b8; border-color: #e8cf8e; }
+      .btn.icon { padding: 8px 13px; font-size: 17px; line-height: 1; }
+
+      #topbar {
+        position: absolute; top: 18px; left: 0; right: 0; display: flex; align-items: center; gap: 10px;
+        padding: 0 20px; pointer-events: none;
+      }
+      #topbar > * { pointer-events: auto; }
+      #topbar .spacer { flex: 1; pointer-events: none; }
+      #brand {
+        color: #b3a582; font-size: 15px; letter-spacing: 0.3em; padding: 8px 4px; user-select: none;
+      }
+      #brand a { color: #e0cf9f; text-decoration: none; border-bottom: 1px solid rgba(206,166,92,0.4); }
+
+      /* 目录 */
+      #panel {
+        position: absolute; top: 74px; left: 20px; width: 285px; max-height: calc(100% - 200px);
+        overflow: auto; background: rgba(12,9,6,0.92); border: 1px solid rgba(206,166,92,0.3);
+        box-shadow: 0 12px 44px rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      }
+      #panel.hidden { display: none; }
+      #panel h3 {
+        color: #b3a582; font-size: 14px; letter-spacing: 0.4em; padding: 14px 18px 10px;
+        border-bottom: 1px solid rgba(206,166,92,0.2);
+      }
+      #panel .item {
+        display: flex; align-items: baseline; gap: 10px; padding: 10px 18px; cursor: pointer;
+        color: #cfc4ae; border-bottom: 1px solid rgba(206,166,92,0.08); transition: background .15s;
+      }
+      #panel .item:hover { background: rgba(74,58,30,0.55); color: #f3e2b3; }
+      #panel .item.current { background: rgba(96,74,36,0.6); color: #f7e6b8; }
+      #panel .item .no { color: #8a7f66; font-size: 13px; font-family: Georgia, serif; min-width: 24px; }
+      #panel .item .nm { font-weight: 700; letter-spacing: 0.1em; }
+      #panel .item .yr { margin-left: auto; color: #8a7f66; font-size: 12.5px; font-family: Georgia, serif; }
+      #panel .item.chap .nm { font-weight: 400; letter-spacing: 0.24em; }
+
+      /* 底部控制条 */
+      #controlbar {
+        position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 20px 16px;
+        background: linear-gradient(transparent, rgba(8,6,4,0.92) 38%);
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      #progresswrap { position: relative; height: 22px; display: flex; align-items: center; }
+      #progress {
+        -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: transparent; cursor: pointer;
+      }
+      #progress::-webkit-slider-runnable-track {
+        height: 4px; background: linear-gradient(90deg, #8a6a30 var(--p, 0%), rgba(210,180,120,0.22) var(--p, 0%));
+      }
+      #progress::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; margin-top: -5.5px;
+        background: #f0cd7e; box-shadow: 0 0 10px rgba(240,205,126,0.9); border: 1px solid #fff8e0;
+      }
+      #progress::-moz-range-track { height: 4px; background: rgba(210,180,120,0.22); }
+      #progress::-moz-range-progress { height: 4px; background: #8a6a30; }
+      #progress::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: #f0cd7e; border: 1px solid #fff8e0; }
+      .tick {
+        position: absolute; top: 50%; width: 2px; height: 10px; margin-top: -5px;
+        background: rgba(240,205,126,0.75); pointer-events: none;
+      }
+      .tick.major { height: 14px; margin-top: -7px; background: #f0cd7e; }
+      #barrow { display: flex; align-items: center; gap: 10px; }
+      #nowplaying { color: #e0cf9f; font-size: 16px; letter-spacing: 0.14em; min-width: 200px; }
+      #nowplaying small { color: #8a7f66; font-size: 12.5px; letter-spacing: 0.08em; display: block; margin-top: 2px; }
+      #time { color: #8a7f66; font-size: 13.5px; font-family: Georgia, serif; margin-left: auto; }
+      #keys { color: #6f6650; font-size: 12px; letter-spacing: 0.1em; }
+
+      /* 加载遮罩 */
+      #loader {
+        position: absolute; inset: 0; z-index: 40; background: #0a0806;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+        transition: opacity .6s ease;
+      }
+      #loader.done { opacity: 0; pointer-events: none; }
+      #loader .t { font-family: "MaShanZheng", serif; color: #f3e6c0; font-size: 64px; letter-spacing: 0.3em; }
+      #loader .s { color: #8a7f66; font-size: 15px; letter-spacing: 0.3em; }
+      #loader .bar { width: 320px; height: 3px; background: rgba(210,180,120,0.18); }
+      #loader .bar div { height: 100%; width: 0%; background: linear-gradient(90deg, #8a6a30, #f0cd7e); transition: width .3s; }
+
+      @media (max-width: 1100px) {
+        #panel { width: 232px; }
+        #nowplaying { min-width: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="stage">
+        <canvas id="gl"></canvas>
+        <div id="grade"></div>
+        <div id="warm"></div>
+      </div>
+
+      <div id="labels"></div>
+
+      <div id="overview">
+        <div id="ov-head">
+          <div id="ov-h1">十七年<br />一个人的西行</div>
+          <div id="ov-era">629 — 645 · 长安 — 那烂陀 — 长安</div>
+        </div>
+        <div id="stats"></div>
+      </div>
+
+      <div id="topleft">
+        <div class="mark" id="tl-mark">奘</div>
+        <div id="tl-era">公元 629 年 · 西行纪</div>
+        <div class="wm" id="tl-wm">玄奘西行 · 西行纪</div>
+      </div>
+
+      <div id="topright">
+        <div class="st-word">STATION</div>
+        <div id="tr-num">01<span class="of">/28</span></div>
+        <div id="tr-region">大唐 · 京畿</div>
+      </div>
+
+      <div id="hud">
+        <div id="hud-coord">N 34.27° · E 108.94°</div>
+        <div id="hud-km-row"><span id="hud-km">0</span><span id="hud-km-unit">公里</span></div>
+        <div id="hud-track"><div id="hud-bar"></div></div>
+      </div>
+
+      <div id="stationcard">
+        <div id="card-head">
+          <div id="card-no">第 01 站</div>
+          <div id="card-coord">34.27°N · 108.94°E</div>
+        </div>
+        <img id="card-art" alt="" />
+        <div id="card-title">誓愿西行</div>
+        <div id="card-name-row">
+          <div id="card-name">长安</div>
+          <div id="card-modern">陕西 · 西安</div>
+        </div>
+        <div id="card-text"></div>
+      </div>
+
+      <div id="titlecard">
+        <div id="title-era">公元 629 · 贞观三年</div>
+        <div id="title-main">玄奘西行</div>
+        <div id="title-sub">一条真实的路 · 一部神魔的书</div>
+        <div id="title-sub-en">A REAL JOURNEY BEHIND A MYTHIC NOVEL</div>
+        <div id="title-foot">史实依据《大唐西域记》《大慈恩寺三藏法师传》 · 神魔演绎对照吴承恩《西游记》</div>
+      </div>
+
+      <div id="credits"></div>
+
+      <div id="fade"></div>
+
+      <!-- ===== 互动控件 ===== -->
+      <div id="ui">
+        <div id="topbar">
+          <button class="btn" id="panelBtn">目 录</button>
+          <span id="brand"></span>
+          <span class="spacer"></span>
+          <button class="btn active" id="modeFollow">跟 随</button>
+          <button class="btn" id="modeOverview">总 览</button>
+          <button class="btn icon" id="muteBtn" title="声音">🔊</button>
+          <button class="btn" id="videoLink">观看影片</button>
+        </div>
+
+        <div id="panel" class="hidden">
+          <h3>章 节</h3>
+          <div id="chapterList"></div>
+          <h3>站 点</h3>
+          <div id="stationList"></div>
+        </div>
+
+        <div id="controlbar">
+          <div id="progresswrap">
+            <input type="range" id="progress" min="0" max="100" step="0.01" value="0" />
+          </div>
+          <div id="barrow">
+            <button class="btn icon" id="playBtn" title="播放/暂停（空格）">▶</button>
+            <button class="btn icon" id="prevBtn" title="上一站（←）">⏮</button>
+            <button class="btn icon" id="nextBtn" title="下一站（→）">⏭</button>
+            <div id="nowplaying">—<small id="keys">←→ 站点 · 空格 播放 · O 总览 · M 静音</small></div>
+            <span id="time">0:00 / 4:22</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="loader">
+        <div class="t" id="loaderTitle">玄奘西行</div>
+        <div class="bar"><div id="loaderBar"></div></div>
+        <div class="s">正在展开地图 · 请稍候</div>
+      </div>
+
+      <audio id="bgm" src="assets/music/eastern-thought.mp3" preload="auto"></audio>
+    </div>
+    <script type="importmap">
+      { "imports": { "three": "./node_modules/three/build/three.module.js" } }
+    </script>
+    <script>
+      window.__INTERACTIVE = true;
+      window.COURSE_ID = "zhangqian";
+      window.__timelines = window.__timelines || {};
+      window.__PAGEERR = [];
+      addEventListener("error", (e) => window.__PAGEERR.push(String(e.message) + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno));
+      addEventListener("unhandledrejection", (e) => window.__PAGEERR.push("REJ " + String(e.reason)));
+    </script>
+    <script type="module" src="./app.js"></script>
+    <script type="module" src="./interactive.js"></script>
+  </body>
+</html>

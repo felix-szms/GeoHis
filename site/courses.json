@@ -1,0 +1,102 @@
+{
+  "site": "跟着地图学历史",
+  "tagline": "把伟大的一生，画成一条可以交互的航线",
+  "series": [
+    {
+      "id": "persons",
+      "name": "历史人物篇",
+      "status": "live",
+      "desc": "用一条航线，走完一个人的一生"
+    },
+    {
+      "id": "network",
+      "name": "线路网络史篇",
+      "status": "planned",
+      "desc": "运河、铁路、光缆——看线路如何一寸寸铺满世界"
+    },
+    {
+      "id": "war",
+      "name": "战争 · 战役沙盘篇",
+      "status": "planned",
+      "desc": "箭头、战线与城池，一比一复原经典战役"
+    },
+    {
+      "id": "civilization",
+      "name": "文明演变篇",
+      "status": "planned",
+      "desc": "拖动年份，看疆域与文明此消彼长"
+    }
+  ],
+  "courses": [
+    {
+      "id": "xuanzang",
+      "series": "persons",
+      "status": "live",
+      "title": "玄奘西行",
+      "subtitle": "一条真实的路 · 一部神魔的书",
+      "person": "玄奘",
+      "years": "629 — 645",
+      "stations": 28,
+      "duration": "4:22",
+      "desc": "从长安到那烂陀，28 站走完十七年西行路；《西游记》里那些神魔原型，都在路上。",
+      "cover": "/courses/xuanzang/cover.jpg",
+      "path": "/courses/xuanzang/interactive.html"
+    },
+    {
+      "id": "archimedes",
+      "series": "persons",
+      "status": "live",
+      "title": "阿基米德",
+      "subtitle": "给我一个支点 · 我能撬动地球",
+      "person": "阿基米德",
+      "years": "前287 — 前212",
+      "stations": 10,
+      "duration": "1:06",
+      "desc": "一条往返地中海的航线：尤里卡、杠杆、π、球与圆柱，以及那道没做完的圆。",
+      "cover": "/courses/archimedes/cover.jpg",
+      "path": "/courses/archimedes/interactive.html"
+    },
+    {
+      "id": "zhangqian",
+      "series": "persons",
+      "status": "live",
+      "title": "张骞出使西域",
+      "subtitle": "去时百余人 · 归来仅二人",
+      "person": "张骞",
+      "years": "前138 — 前126",
+      "stations": 10,
+      "duration": "2:44",
+      "desc": "两度被匈奴扣押、持节十三年不失。他用脚步把「西域」变成了地图上的实体，开启丝绸之路。",
+      "cover": "/courses/zhangqian/cover.jpg",
+      "path": "/courses/zhangqian/interactive.html"
+    },
+    {
+      "id": "faxian",
+      "series": "persons",
+      "status": "live",
+      "title": "法显西行",
+      "subtitle": "陆去海归 · 十四年三十余国",
+      "person": "法显",
+      "years": "399 — 412",
+      "stations": 11,
+      "duration": "2:36",
+      "desc": "65岁出发西行求律，70多岁搭商船九死一生漂回故土。《佛国记》万古行记之祖。",
+      "cover": "/courses/faxian/cover.jpg",
+      "path": "/courses/faxian/interactive.html"
+    },
+    {
+      "id": "marcopolo",
+      "series": "persons",
+      "status": "live",
+      "title": "马可·波罗东行",
+      "subtitle": "十七年 · 从威尼斯到大都",
+      "person": "马可·波罗",
+      "years": "1271 — 1295",
+      "stations": 13,
+      "duration": "2:50",
+      "desc": "威尼斯少年走过帕米尔、觐见忽必烈、称杭州为「天城」。他输掉了所有人的信任，赢下了七百年的传说。",
+      "cover": "/courses/marcopolo/cover.jpg",
+      "path": "/courses/marcopolo/interactive.html"
+    }
+  ]
+}
