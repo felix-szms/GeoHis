@@ -172,6 +172,17 @@ function buildUI() {
     ui.mute.textContent = ui.bgm.muted ? "🔇" : "🔊";
     if (!ui.bgm.muted && playing) { ui.bgm.currentTime = Math.min(APP.t, Math.max(0, ui.bgm.duration - 1)); ui.bgm.play().catch(() => {}); }
   };
+  // 知识卡最小化切换（点击 − 折叠为标题栏，+ 展开）
+  const cardEl = document.getElementById("stationcard");
+  const minBtn = document.getElementById("card-min");
+  if (minBtn && cardEl) {
+    minBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      cardEl.classList.toggle("minimized");
+      minBtn.textContent = cardEl.classList.contains("minimized") ? "+" : "−";
+    });
+  }
+
   ui.panelBtn.onclick = () => ui.panel.classList.toggle("hidden");
   // 站点环境下显示「课程列表」，项目本地预览显示「观看影片」
   const onSite = location.pathname.includes("/courses/");

@@ -38,8 +38,9 @@
         align-items: center; justify-content: center; text-align: center; overflow: hidden;
       }
       .hero .bg {
-        position: absolute; inset: 0; background-size: cover; background-position: center 30%;
-        filter: brightness(0.5) sepia(0.15); animation: drift 40s ease-in-out infinite alternate;
+        position: absolute; inset: 0; background-size: cover; background-position: center;
+        background-image: url("./shared/img/world-map.jpg");
+        filter: brightness(0.42) sepia(0.18); opacity: 0.85;
       }
       @keyframes drift { from { transform: scale(1); } to { transform: scale(1.08) translateX(-2%); } }
       .hero::after {
@@ -165,7 +166,7 @@
     <script type="module">
       const res = await fetch("./courses.json");
       const data = await res.json();
-      document.querySelector(".hero .bg").style.backgroundImage = `url(${data.courses[0].cover})`;
+      // Hero 背景固定为世界地图（CSS 内联），不随课程切换
 
       // 系列筛选
       let active = "all";

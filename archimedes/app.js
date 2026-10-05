@@ -597,12 +597,39 @@ function projectToScreen(pos) {
   return { x: (v.x * 0.5 + 0.5) * W, y: (1 - (v.y * 0.5 + 0.5)) * H };
 }
 
+// 标签防重叠：按帧收集屏幕包围盒，碰撞的标签依次尝试四角偏移，放不下则隐藏
+const labelBoxes = [];
+function labelFits(x, y, w, h) {
+  for (const b of labelBoxes) {
+    if (x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y) return false;
+  }
+  return true;
+}
+
 function setLabel(d, pos, opacity, hide = false, dx = 0, dy = 0) {
   if (hide || opacity <= 0.01) { d.style.opacity = "0"; return; }
   const s = projectToScreen(pos);
   if (!s) { d.style.opacity = "0"; return; }
-  d.style.transform = `translate(${(s.x + dx).toFixed(1)}px, ${(s.y + dy).toFixed(1)}px)`;
-  d.style.opacity = opacity.toFixed(3);
+  // 防重叠：测量标签实际尺寸，碰撞时尝试四角偏移，放不下则隐藏
+  const bw = (d.offsetWidth || 120) + 8, bh = (d.offsetHeight || 40) + 4;
+  let placed = false;
+  const cands = [
+    [s.x + dx + 12, s.y + dy - bh],   // 默认：右上
+    [s.x + dx - bw, s.y + dy - bh],   // 左上
+    [s.x + dx + 12, s.y + dy + 10],   // 右下
+    [s.x + dx - bw, s.y + dy + 10],   // 左下
+  ];
+  for (const [cx, cy] of cands) {
+    if (cx < 0 || cy < 0 || cx + bw > W || cy + bh > H) continue;
+    if (labelFits(cx, cy, bw, bh)) {
+      labelBoxes.push({ x: cx, y: cy, w: bw, h: bh });
+      d.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+      d.style.opacity = opacity.toFixed(3);
+      placed = true;
+      break;
+    }
+  }
+  if (!placed) { d.style.opacity = "0"; }
 }
 
 let __lastErr = null;
@@ -619,6 +646,7 @@ function update(t) {
 }
 
 function updateInner(t) {
+  labelBoxes.length = 0;
   const u = t < T_J0 ? 0 : t > T_J1 ? 1 : uAt(t);
 
   tubeCore.uniforms.uProg.value = u;
