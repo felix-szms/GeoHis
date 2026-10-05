@@ -189,6 +189,23 @@
       #credits .col p { color: #8a8069; font-size: 15px; line-height: 1.9; letter-spacing: 0.03em; }
       #credits .rend { margin-top: 56px; color: #6f6650; font-size: 14px; letter-spacing: 0.2em; font-family: Georgia, serif; }
 
+
+      /* 卡片最小化 */
+      #stationcard.minimized { padding: 0; overflow: hidden; }
+      #stationcard.minimized #card-head { padding: 10px 18px; }
+      #stationcard.minimized #card-art,
+      #stationcard.minimized #card-title,
+      #stationcard.minimized #card-name-row,
+      #stationcard.minimized #card-text { display: none !important; }
+      #stationcard.minimized { width: auto; min-width: 220px; }
+      #card-min {
+        position: absolute; right: 8px; top: 8px; z-index: 11;
+        width: 28px; height: 28px; border: 1px solid rgba(206,166,92,0.4);
+        background: rgba(14,11,8,0.7); color: #e0cf9f; font-size: 14px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        border-radius: 4px; transition: all 0.15s; line-height: 1;
+      }
+      #card-min:hover { background: rgba(96,74,36,0.9); border-color: #e8cf8e; }
       #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 20; pointer-events: none; }
 
       /* ================= 互动控件层 ================= */
@@ -325,7 +342,8 @@
       <div id="stationcard">
         <div id="card-head">
           <div id="card-no">第 01 站</div>
-          <div id="card-coord">34.27°N · 108.94°E</div>
+          <div id="card-min">−</div>
+        <div id="card-coord">34.27°N · 108.94°E</div>
         </div>
         <img id="card-art" alt="" />
         <div id="card-title">誓愿西行</div>
