@@ -6,100 +6,304 @@
     "era": "公元前 287 · 希腊化时代",
     "watermark": "阿基米德 · 支点",
     "mark": "阿",
-    "eraLegLabels": ["游学纪", "归乡纪"],
+    "eraLegLabels": [
+      "游学纪",
+      "归乡纪"
+    ],
     "foot": "史料依据 普鲁塔克《对比列传》 · 维特鲁威《建筑十书》 · 传说均已标注「相传」",
     "ending": {
       "headline1": "七十五年",
       "headline2": "一个人的支点",
       "eraLine": "公元前287 — 前212 · 地中海往返",
       "stats": [
-        { "num": 75, "unit": "年", "desc": "公元前287—前212" },
-        { "num": 10, "unit": "余部", "desc": "传世著作" },
-        { "num": 22, "unit": "/7", "desc": "π 的上界" },
-        { "num": 2, "unit": "/3", "desc": "球与外接圆柱" },
-        { "num": 212, "unit": " BC", "desc": "城破 · 圆未完成" }
+        {
+          "num": 75,
+          "unit": "年",
+          "desc": "公元前287—前212"
+        },
+        {
+          "num": 10,
+          "unit": "余部",
+          "desc": "传世著作"
+        },
+        {
+          "num": 22,
+          "unit": "/7",
+          "desc": "π 的上界"
+        },
+        {
+          "num": 2,
+          "unit": "/3",
+          "desc": "球与外接圆柱"
+        },
+        {
+          "num": 212,
+          "unit": " BC",
+          "desc": "城破 · 圆未完成"
+        }
       ]
     },
     "credits": {
-      "map": ["NASA Blue Marble Next Generation（NASA GIBS）", "Terrain Tiles · Mapzen / AWS Open Data", "Natural Earth · 规范与画图"],
-      "images": ["公有领域绘画与版画 · Wikimedia Commons", "《阿基米德肖像》多梅尼科·费蒂 1620 · 公有领域"],
-      "musicFonts": ["\"Gymnopedie No.1\"（萨蒂曲）Kevin MacLeod", "Licensed under CC BY 3.0", "马善政毛笔楷书 · 思源宋体（SIL OFL）"],
-      "texts": ["普鲁塔克《对比列传》", "维特鲁威《建筑十书》", "《阿基米德全集》"],
+      "map": [
+        "NASA Blue Marble Next Generation（NASA GIBS）",
+        "Terrain Tiles · Mapzen / AWS Open Data",
+        "Natural Earth · 规范与画图"
+      ],
+      "images": [
+        "公有领域绘画与版画 · Wikimedia Commons",
+        "《阿基米德肖像》多梅尼科·费蒂 1620 · 公有领域"
+      ],
+      "musicFonts": [
+        "\"Gymnopedie No.1\"（萨蒂曲）Kevin MacLeod",
+        "Licensed under CC BY 3.0",
+        "马善政毛笔楷书 · 思源宋体（SIL OFL）"
+      ],
+      "texts": [
+        "普鲁塔克《对比列传》",
+        "维特鲁威《建筑十书》",
+        "《阿基米德全集》"
+      ],
       "render": "three.js · GSAP · HyperFrames"
     },
     "timing": {
-      "dur": 60, "openEnd": 6, "j0": 6, "j1": 41, "ov": 44, "cr": 55,
-      "dwellMajor": 2.8, "dwellMinor": 0.9, "kmScale": 1.0
+      "dur": 60,
+      "openEnd": 6,
+      "j0": 6,
+      "j1": 41,
+      "ov": 44,
+      "cr": 55,
+      "dwellMajor": 2.8,
+      "dwellMinor": 0.9,
+      "kmScale": 1.0
     },
-    "openCamera": { "lng": 22.6, "lat": 34.6 }
+    "openCamera": {
+      "lng": 22.6,
+      "lat": 34.6
+    }
   },
   "stations": [
     {
-      "id": 1, "name": "叙拉古", "modern": "西西里 · 锡拉库萨", "region": "大希腊 · 西西里",
-      "lng": 15.29, "lat": 37.07, "year": -287, "leg": "out",
-      "major": true, "title": "几何之子", "art": "assets/art/pd-01.jpg",
+      "id": 1,
+      "name": "叙拉古",
+      "modern": "西西里 · 锡拉库萨",
+      "region": "大希腊 · 西西里",
+      "lng": 15.29,
+      "lat": 37.07,
+      "year": -287,
+      "leg": "out",
+      "major": true,
+      "title": "几何之子",
+      "art": "assets/art/pd-01.jpg",
       "text": "公元前287年，阿基米德生于西西里东岸的希腊城邦叙拉古，相传与国王希伦二世沾亲。少时渡海东去，前往学术之都。"
     },
     {
-      "id": 2, "name": "亚历山大", "modern": "埃及 · 亚历山大港", "region": "托勒密埃及",
-      "lng": 29.9, "lat": 31.2, "year": -267, "leg": "out",
-      "major": true, "title": "留学之城", "art": "assets/art/pd-02.jpg",
+      "id": 2,
+      "name": "亚历山大",
+      "modern": "埃及 · 亚历山大港",
+      "region": "托勒密埃及",
+      "lng": 29.9,
+      "lat": 31.2,
+      "year": -267,
+      "leg": "out",
+      "major": true,
+      "title": "留学之城",
+      "art": "assets/art/pd-02.jpg",
       "text": "在欧几里得弟子的学园研习数学，终身与亚历山大的学者通信论学。相传他在埃及发明螺旋提水器——至今仍在尼罗河畔转动。"
     },
     {
-      "id": 3, "name": "尤里卡", "modern": "王冠疑案", "region": "大希腊 · 西西里",
-      "lng": 15.12, "lat": 36.98, "year": -250, "leg": "ret",
-      "major": true, "title": "尤里卡！", "art": "assets/art/pd-03.jpg", "labelOnMap": false,
+      "id": 3,
+      "name": "尤里卡",
+      "modern": "王冠疑案",
+      "region": "大希腊 · 西西里",
+      "lng": 15.12,
+      "lat": 36.98,
+      "year": -250,
+      "leg": "ret",
+      "major": true,
+      "title": "尤里卡！",
+      "art": "assets/art/pd-03.jpg",
+      "labelOnMap": false,
       "text": "国王疑金冠掺银。相传他踏入浴池，见水外溢而顿悟浮力，竟裸身跃出，奔走呼喊：尤里卡！——我找到了。"
     },
     {
-      "id": 4, "name": "杠杆", "modern": "给我一个支点", "region": "大希腊 · 西西里",
-      "lng": 15.47, "lat": 37.18, "year": -245, "leg": "ret",
-      "labelDx": -88, "labelDy": -8,
+      "id": 4,
+      "name": "杠杆",
+      "modern": "给我一个支点",
+      "region": "大希腊 · 西西里",
+      "lng": 15.47,
+      "lat": 37.18,
+      "year": -245,
+      "leg": "ret",
+      "labelDx": -88,
+      "labelDy": -8,
       "text": "杠杆原理：动力×动力臂=阻力×阻力臂。相传他向国王放言：给我一个支点，我能撬动地球。"
     },
     {
-      "id": 5, "name": "割圆术", "modern": "3 10/71 < π < 3 1/7", "region": "大希腊 · 西西里",
-      "lng": 15.08, "lat": 37.24, "year": -240, "leg": "ret",
-      "labelDx": -36, "labelDy": -58,
+      "id": 5,
+      "name": "割圆术",
+      "modern": "3 10/71 < π < 3 1/7",
+      "region": "大希腊 · 西西里",
+      "lng": 15.08,
+      "lat": 37.24,
+      "year": -240,
+      "leg": "ret",
+      "labelDx": -36,
+      "labelDy": -58,
       "text": "用正九十六边形逼近圆周，得出π介于 3又10/71 与 3又1/7 之间。"
     },
     {
-      "id": 6, "name": "球与圆柱", "modern": "体积之比 2 : 3", "region": "大希腊 · 西西里",
-      "lng": 15.33, "lat": 37.03, "year": -225, "leg": "ret",
-      "major": true, "title": "墓碑定理", "labelOnMap": false,
+      "id": 6,
+      "name": "球与圆柱",
+      "modern": "体积之比 2 : 3",
+      "region": "大希腊 · 西西里",
+      "lng": 15.33,
+      "lat": 37.03,
+      "year": -225,
+      "leg": "ret",
+      "major": true,
+      "title": "墓碑定理",
+      "labelOnMap": false,
       "text": "他证明：球体积恰为其外接圆柱的三分之二。相传他嘱人将此定理刻上墓碑——一个几何学家为自己画的像。"
     },
     {
-      "id": 7, "name": "罗马围城", "modern": "第二次布匿战争", "region": "罗马共和国 · 来犯",
-      "lng": 15.2, "lat": 37.12, "year": -213, "leg": "ret",
-      "major": true, "title": "战争机械", "art": "assets/art/pd-04.jpg", "labelOnMap": false,
+      "id": 7,
+      "name": "罗马围城",
+      "modern": "第二次布匿战争",
+      "region": "罗马共和国 · 来犯",
+      "lng": 15.2,
+      "lat": 37.12,
+      "year": -213,
+      "leg": "ret",
+      "major": true,
+      "title": "战争机械",
+      "art": "assets/art/pd-04.jpg",
+      "labelOnMap": false,
       "text": "罗马舰队围港。相传他造出起重机之爪掀翻战船，铜镜聚光焚其帆樯，坚城固守两年，罗马士兵闻其名而胆寒。"
     },
     {
-      "id": 8, "name": "圆", "modern": "公元前212 · 城破", "region": "罗马共和国 · 破城",
-      "lng": 15.38, "lat": 37.0, "year": -212, "leg": "ret",
-      "major": true, "title": "不要弄乱我的圆", "art": "assets/art/pd-05.jpg", "labelOnMap": false,
+      "id": 8,
+      "name": "圆",
+      "modern": "公元前212 · 城破",
+      "region": "罗马共和国 · 破城",
+      "lng": 15.38,
+      "lat": 37.0,
+      "year": -212,
+      "leg": "ret",
+      "major": true,
+      "title": "不要弄乱我的圆",
+      "art": "assets/art/pd-05.jpg",
+      "labelOnMap": false,
       "text": "城陷之夜，罗马主将马塞拉斯下令留他性命。相传士兵闯入时，他正俯身画圆：别踩坏了我的圆！——刀落，圆未成。"
     }
   ],
   "tags": [
-    { "label": "相传 · 尤里卡！", "lng": 14.72, "lat": 36.78 },
-    { "label": "相传 · 别弄乱我的圆", "lng": 15.95, "lat": 37.42 }
+    {
+      "label": "相传 · 尤里卡！",
+      "lng": 14.72,
+      "lat": 36.78
+    },
+    {
+      "label": "相传 · 别弄乱我的圆",
+      "lng": 15.95,
+      "lat": 37.42
+    }
   ],
   "waypointLabels": [
-    { "name": "克里特岛", "lng": 23.9, "lat": 34.9 },
-    { "name": "罗得岛", "lng": 28.05, "lat": 36.2 }
+    {
+      "name": "克里特岛",
+      "lng": 23.9,
+      "lat": 34.9
+    },
+    {
+      "name": "罗得岛",
+      "lng": 28.05,
+      "lat": 36.2
+    }
   ],
   "routes": {
     "outbound": [
-      [15.29, 37.07], [16.6, 36.55], [18.4, 35.75], [20.8, 35.1], [23.5, 34.4],
-      [26.0, 33.6], [28.0, 32.6], [29.4, 31.8], [29.9, 31.2]
+      [
+        15.29,
+        37.07
+      ],
+      [
+        16.6,
+        36.55
+      ],
+      [
+        18.4,
+        35.75
+      ],
+      [
+        20.8,
+        35.1
+      ],
+      [
+        23.5,
+        34.4
+      ],
+      [
+        26.0,
+        33.6
+      ],
+      [
+        28.0,
+        32.6
+      ],
+      [
+        29.4,
+        31.8
+      ],
+      [
+        29.9,
+        31.2
+      ]
     ],
     "return": [
-      [29.9, 31.2], [30.4, 31.7], [30.1, 32.4], [29.2, 33.3], [27.6, 34.3],
-      [25.8, 35.3], [23.5, 35.8], [21.2, 36.3], [18.6, 36.6], [16.8, 36.95],
-      [15.29, 37.07]
+      [
+        29.9,
+        31.2
+      ],
+      [
+        30.4,
+        31.7
+      ],
+      [
+        30.1,
+        32.4
+      ],
+      [
+        29.2,
+        33.3
+      ],
+      [
+        27.6,
+        34.3
+      ],
+      [
+        25.8,
+        35.3
+      ],
+      [
+        23.5,
+        35.8
+      ],
+      [
+        21.2,
+        36.3
+      ],
+      [
+        18.6,
+        36.6
+      ],
+      [
+        16.8,
+        36.95
+      ],
+      [
+        15.29,
+        37.07
+      ]
     ]
   }
 }

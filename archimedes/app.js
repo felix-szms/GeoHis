@@ -684,15 +684,21 @@ function updateInner(t) {
 
   // 站点卡片
   let active = -1, cardOp = 0;
-  const CARD_HOLD = DWELL_MAJOR + 1.2;
-  for (let i = 0; i < DATA.stations.length; i++) {
-    const st = DATA.stations[i];
-    if (!st.major) continue;
-    const t0 = TK[i], t1 = TK[i] + CARD_HOLD;
-    if (t >= t0 && t <= t1) {
-      active = i;
-      cardOp = sstep(t0, t0 + 0.7, t) * (1 - sstep(t1 - 0.6, t1, t));
-      break;
+  if (TOP) {
+    // 互动模式：当前站点卡片常驻，所有站点均可触发
+    active = segAt(t);
+    cardOp = 1;
+  } else {
+    const CARD_HOLD = DWELL_MAJOR + 1.2;
+    for (let i = 0; i < DATA.stations.length; i++) {
+      const st = DATA.stations[i];
+      if (!st.major) continue;
+      const t0 = TK[i], t1 = TK[i] + CARD_HOLD;
+      if (t >= t0 && t <= t1) {
+        active = i;
+        cardOp = sstep(t0, t0 + 0.7, t) * (1 - sstep(t1 - 0.6, t1, t));
+        break;
+      }
     }
   }
   if (active >= 0) {
