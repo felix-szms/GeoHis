@@ -29,20 +29,6 @@
   ],
   "courses": [
     {
-      "id": "xuanzang",
-      "series": "persons",
-      "status": "live",
-      "title": "玄奘西行",
-      "subtitle": "一条真实的路 · 一部神魔的书",
-      "person": "玄奘",
-      "years": "629 — 645",
-      "stations": 28,
-      "duration": "4:22",
-      "desc": "从长安到那烂陀，28 站走完十七年西行路；《西游记》里那些神魔原型，都在路上。",
-      "cover": "/courses/xuanzang/cover.jpg",
-      "path": "/courses/xuanzang/interactive.html"
-    },
-    {
       "id": "archimedes",
       "series": "persons",
       "status": "live",
@@ -83,6 +69,20 @@
       "desc": "65岁出发西行求律，70多岁搭商船九死一生漂回故土。《佛国记》万古行记之祖。",
       "cover": "/courses/faxian/cover.jpg",
       "path": "/courses/faxian/interactive.html"
+    },
+    {
+      "id": "xuanzang",
+      "series": "persons",
+      "status": "live",
+      "title": "玄奘西行",
+      "subtitle": "一条真实的路 · 一部神魔的书",
+      "person": "玄奘",
+      "years": "629 — 645",
+      "stations": 28,
+      "duration": "4:22",
+      "desc": "从长安到那烂陀，28 站走完十七年西行路；《西游记》里那些神魔原型，都在路上。",
+      "cover": "/courses/xuanzang/cover.jpg",
+      "path": "/courses/xuanzang/interactive.html"
     },
     {
       "id": "marcopolo",
