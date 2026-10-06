@@ -491,7 +491,7 @@ const MESH_CX = (MESH_MINX + MESH_MAXX) / 2, MESH_CZ = (MESH_MINZ + MESH_MAXZ) /
 const MESH_DIST = Math.max(
   (MESH_MAXX - MESH_MINX) / (2 * Math.tan(HFIZ / 2)),
   (MESH_MAXZ - MESH_MINZ) / (2 * Math.tan((40 * Math.PI) / 360))
-) * 1.04;
+) * 0.93;
 
 function updateCamera(t, u) {
   const head = curve.getPointAt(clamp01(u));
@@ -599,9 +599,13 @@ function projectToScreen(pos) {
 
 // 标签防重叠：按帧收集屏幕包围盒，碰撞的标签依次尝试四角偏移，放不下则隐藏
 const labelBoxes = [];
+const labelReserved = []; // UI 保留区：顶栏 / 总览统计面板 / 跟随模式卡片
 function labelFits(x, y, w, h) {
   for (const b of labelBoxes) {
     if (x < b.x + b.w && x + w > b.x && y < b.y + b.h && y + h > b.y) return false;
+  }
+  for (const r of labelReserved) {
+    if (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y) return false;
   }
   return true;
 }
@@ -647,6 +651,11 @@ function update(t) {
 
 function updateInner(t) {
   labelBoxes.length = 0;
+  labelReserved.length = 0;
+  // UI 保留区：标签不得进入这些矩形（与站名/统计/标题互不遮挡）
+  labelReserved.push({ x: 0, y: 0, w: W, h: 148 });                              // 顶栏带
+  if (t >= T_OV - 4) labelReserved.push({ x: W - 640, y: 60, w: 640, h: 800 });    // 总览：右侧标题+统计
+  else labelReserved.push({ x: W - 560, y: 140, w: 560, h: 740 });                 // 跟随：右侧知识卡
   const u = t < T_J0 ? 0 : t > T_J1 ? 1 : uAt(t);
 
   tubeCore.uniforms.uProg.value = u;
