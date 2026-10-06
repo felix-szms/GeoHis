@@ -114,13 +114,13 @@
       #hud-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #8a6a30, #f0cd7e); box-shadow: 0 0 10px rgba(240,205,126,0.8); }
 
       #topright {
-        position: absolute; right: 70px; top: 44px; z-index: 10; opacity: 0;
-        text-align: right; pointer-events: none;
+        position: absolute; right: 70px; top: 28px; z-index: 10; opacity: 0;
+        display: flex; align-items: baseline; gap: 14px; pointer-events: none;
       }
-      #topright .st-word { color: #7d7259; font-size: 14px; letter-spacing: 0.5em; font-family: Georgia, serif; }
-      #tr-num { color: #ecd9a4; font-size: 44px; font-weight: 700; line-height: 1.1; }
-      #tr-num .of { font-size: 20px; color: #8a7f66; font-weight: 400; margin-left: 4px; }
-      #tr-region { margin-top: 4px; color: #b3a582; font-size: 18px; letter-spacing: 0.22em; }
+      #topright .st-word { display: none; }
+      #tr-num { color: #ecd9a4; font-size: 30px; font-weight: 700; line-height: 1; }
+      #tr-num .of { font-size: 17px; color: #8a7f66; font-weight: 400; margin-left: 4px; }
+      #tr-region { color: #d4c8a8; font-size: 17px; letter-spacing: 0.16em; }
 
       #topleft {
         position: absolute; left: 70px; top: 44px; z-index: 10; opacity: 0; pointer-events: none;

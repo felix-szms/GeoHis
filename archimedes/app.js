@@ -65,6 +65,15 @@ const sun = new THREE.DirectionalLight(0xffdca8, 1.15);
 sun.position.set(-1, 0.9, -0.55);
 scene.add(sun);
 
+// 衬底：地形网格范围之外的暗色大地（消灭画面边缘黑边）
+const underlay = new THREE.Mesh(
+  new THREE.PlaneGeometry(60000, 60000),
+  new THREE.MeshBasicMaterial({ color: 0x171108 })
+);
+underlay.rotation.x = -Math.PI / 2;
+underlay.position.y = -6;
+scene.add(underlay);
+
 // ---------- 地形（z7 高程网格 + z8 卫星贴图） ----------
 const texLoader = new THREE.TextureLoader();
 const demData = new Map();
@@ -100,10 +109,10 @@ function heightAt(wx, wy) {
 
 const MANIFEST = await (await fetch("assets/tiles/manifest.json")).json();
 const { corridor } = MANIFEST;
-const TX0 = Math.floor(lngToX(corridor.west, TILE) / PX) - 1;
-const TX1 = Math.floor(lngToX(corridor.east, TILE) / PX) + 1;
-const TY0 = Math.floor(latToY(corridor.north, TILE) / PX) - 1;
-const TY1 = Math.floor(latToY(corridor.south, TILE) / PX) + 1;
+const TX0 = Math.floor(lngToX(corridor.west, TILE) / PX);
+const TX1 = Math.floor(lngToX(corridor.east, TILE) / PX);
+const TY0 = Math.floor(latToY(corridor.north, TILE) / PX);
+const TY1 = Math.floor(latToY(corridor.south, TILE) / PX);
 
 const promises = [];
 for (let x = TX0; x <= TX1; x++)
@@ -488,10 +497,10 @@ const vTmp = new THREE.Vector3(), vTmp2 = new THREE.Vector3();
 const MESH_MINX = TX0 * PX - CX, MESH_MAXX = (TX1 + 1) * PX - CX;
 const MESH_MINZ = TY0 * PX - CY, MESH_MAXZ = (TY1 + 1) * PX - CY;
 const MESH_CX = (MESH_MINX + MESH_MAXX) / 2, MESH_CZ = (MESH_MINZ + MESH_MAXZ) / 2;
-const MESH_DIST = Math.max(
+const MESH_DIST = Math.min(
   (MESH_MAXX - MESH_MINX) / (2 * Math.tan(HFIZ / 2)),
   (MESH_MAXZ - MESH_MINZ) / (2 * Math.tan((40 * Math.PI) / 360))
-) * 0.93;
+) * 1.01; // 短边适配：地图恰好铺满屏幕
 
 function updateCamera(t, u) {
   const head = curve.getPointAt(clamp01(u));
