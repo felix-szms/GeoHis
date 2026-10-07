@@ -1,0 +1,9 @@
+# 素材初始化镜像：同步引擎副本 → 下载全部运行时素材（幂等、断点续传）
+FROM node:22-alpine
+
+WORKDIR /work
+COPY deploy/fetch.mjs /work/fetch.mjs
+COPY scripts/sync-engine.mjs /work/sync-engine.mjs
+
+# 仓库以读写方式挂载到 /srv；产物均落入 gitignore 路径（*/engine/ 副本与 assets/ 素材）
+CMD ["sh", "-c", "node /work/sync-engine.mjs && node /work/fetch.mjs"]

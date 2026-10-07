@@ -2,7 +2,7 @@
 // 一切画面状态都是绝对时间 t 的纯函数：HyperFrames 逐帧 seek，无 rAF 循环
 import * as THREE from "three";
 
-const DATA = await (await fetch("data/stations.json")).json();
+const DATA = await (await fetch("data/stations.json?v=2")).json();
 const META = DATA.meta;
 const TIMING = META.timing;
 const W = META.canvas?.w || 1920;
@@ -420,10 +420,25 @@ const labelEls = DATA.stations.map((st) => {
   el.labels.appendChild(d);
   return d;
 });
+// 地理参照图层（第 3 层）：与共享引擎同款实现
+const GEO_KIND = {
+  mountain: { g: "▲ ", color: "#e8d9ae" },
+  river:    { g: "≈ ", color: "#8fc6de" },
+  sea:      { g: "≈ ", color: "#79b9d9" },
+  lake:     { g: "◉ ", color: "#8fc6de" },
+  desert:   { g: "▦ ", color: "#e2c491" },
+  island:   { g: "◇ ", color: "#cfe0d8" },
+};
 const wpEls = (DATA.waypointLabels || []).map((wp) => {
   const d = document.createElement("div");
   d.className = "lbl wp";
-  d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  const k = GEO_KIND[wp.kind];
+  if (k) {
+    d.style.color = k.color;
+    d.innerHTML = `<div class="nm">${k.g}${wp.name}</div>`;
+  } else {
+    d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  }
   el.labels.appendChild(d);
   return d;
 });
@@ -746,6 +761,7 @@ window.APP = {
   DUR, T_OPEN_END, T_OV, T_CR,
   TK,
   stations: DATA.stations.map((s) => ({ id: s.id, name: s.name, modern: s.modern, year: s.year, major: !!s.major })),
+  segments: (DATA.routeSegments || []).map((s) => ({ from: s.from, to: s.to, type: s.type, name: s.name, note: s.note })),
   title: META.title,
   get t() { return state.t; },
   seek(t) {

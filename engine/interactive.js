@@ -104,6 +104,39 @@ function jumpDelta(dir) {
   flyTo(target.t);
 }
 
+// ---------- 地形分段条（第 2 层）：显示当前路段的地理语义 ----------
+const segChip = document.createElement("div");
+segChip.id = "segchip";
+segChip.style.cssText =
+  "position:absolute;bottom:100px;left:50%;transform:translateX(-50%);z-index:20;max-width:860px;" +
+  "display:flex;align-items:baseline;gap:12px;padding:7px 18px;background:rgba(10,8,5,0.74);" +
+  "border:1px solid rgba(206,166,92,0.35);border-radius:4px;color:#d8c79c;font-size:15px;" +
+  "letter-spacing:0.08em;transition:opacity .5s;opacity:0;pointer-events:none;white-space:nowrap";
+(document.getElementById("ui") || document.body).appendChild(segChip);
+const TYPE_LBL = {
+  desert: "沙漠", pass: "山口", mountain: "山地", sea: "海路", river: "河谷",
+  valley: "河谷", oasis: "绿洲", steppe: "草原", plain: "平原", lake: "湖海",
+};
+let lastSegKey = "";
+function updateSegChip(t, st) {
+  const seg = (APP.segments || []).find((s) => st.id >= s.from && st.id < s.to);
+  const inJourney = t >= APP.T_OPEN_END && t < APP.T_OV;
+  if (seg && inJourney) {
+    const key = seg.from + "-" + seg.to;
+    if (key !== lastSegKey) {
+      lastSegKey = key;
+      segChip.innerHTML =
+        `<span style="color:#9fb8c9;font-size:13px;letter-spacing:.2em">${TYPE_LBL[seg.type] || seg.type} · 地形</span>` +
+        `<span style="color:#efe0b5">${seg.name}</span>` +
+        (seg.note ? `<span style="color:#a5987a;font-size:13px">— ${seg.note}</span>` : "");
+    }
+    segChip.style.opacity = "1";
+  } else {
+    segChip.style.opacity = "0";
+    lastSegKey = "";
+  }
+}
+
 // ---------- UI 同步 ----------
 function syncUI() {
   const t = APP.t;
@@ -116,6 +149,7 @@ function syncUI() {
     const yv = yearAt(t);
     if (ui.yr) ui.yr.textContent = yv < 0 ? `前${-yv}年` : `${yv}年`;
   const st = APP.stationAt(t);
+  updateSegChip(t, st);
   ui.now.innerHTML = `第 ${String(st.id).padStart(2, "0")} 站 · ${st.name}<small>${st.modern}</small>`;
   [...ui.stationList.children].forEach((el, i) => {
     el.classList.toggle("current", APP.stations[i] && APP.stations[i].id === st.id);

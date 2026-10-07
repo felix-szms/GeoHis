@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 引擎同步（各课程生成 engine/ 副本）
+        run: node scripts/sync-engine.mjs
+      - name: 完整性校验（JSON/语法/引用/结构/课程清单）
+        run: node scripts/validate.mjs
+      - name: 依赖锁定一致性
+        run: |
+          for c in xuanzang archimedes zhangqian faxian marcopolo archimedes_xhs; do
+            (cd $c && npm install --package-lock-only --ignore-scripts --no-audit --no-fund && git diff --exit-code package-lock.json)
+          done

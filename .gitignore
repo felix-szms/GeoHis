@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-package-lock.json
+# package-lock.json 需要提交：固定依赖版本，保证逐帧渲染可复现
 
 # Render output (use `npx hyperframes render` to regenerate)
 render/
@@ -15,6 +15,9 @@ work-*
 **/assets/fonts/
 **/assets/music/
 site/shared/fonts/
+
+# 引擎同步副本（单源在根 engine/，用 scripts/sync-engine.mjs 重新生成）
+*/engine/
 
 # OS / Editor / tooling
 .DS_Store

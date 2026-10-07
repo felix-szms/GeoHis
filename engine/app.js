@@ -5,7 +5,7 @@ import * as THREE from "three";
 
 const W = 1920, H = 1080;
 
-const DATA = await (await fetch("data/stations.json")).json();
+const DATA = await (await fetch("data/stations.json?v=2")).json();
 const META = DATA.meta;
 const TIMING = META.timing;
 
@@ -172,6 +172,7 @@ async function awaitTileTexture(x, y) {
 }
 
 const terrainMats = [];
+const texJobs = []; // 贴图请求全部先发出（浏览器自行限并发），几何体构建不再被逐瓦片 await 阻塞
 const SEGS = 32;
 for (let x = TX0; x <= TX1; x++) {
   for (let y = TY0; y <= TY1; y++) {
@@ -194,15 +195,24 @@ for (let x = TX0; x <= TX1; x++) {
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const tex = await awaitTileTexture(x, y);
+    texJobs.push(awaitTileTexture(x, y));
     const mat = new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.96, metalness: 0, color: tex ? 0xffffff : 0x1a150e,
-      emissive: 0x8a8fa6, emissiveMap: tex, emissiveIntensity: 0, // 互动模式动态提亮暗部（海洋/高纬）
+      roughness: 0.96, metalness: 0, color: 0x1a150e,
+      emissive: 0x8a8fa6, emissiveIntensity: 0, // 互动模式动态提亮暗部（海洋/高纬）
     });
     terrainMats.push(mat);
     scene.add(new THREE.Mesh(geo, mat));
   }
 }
+// 等全部贴图就绪后回填材质：保持「模块求值完成 = 场景完整」的确定性语义（逐帧渲染依赖）
+(await Promise.all(texJobs)).forEach((tex, i) => {
+  if (!tex) return;
+  const mat = terrainMats[i];
+  mat.map = tex;
+  mat.emissiveMap = tex;
+  mat.color.set(0xffffff);
+  mat.needsUpdate = true;
+});
 
 // ---------- 路线 ----------
 function routePoints(list) {
@@ -457,10 +467,25 @@ const labelEls = DATA.stations.map((st) => {
   el.labels.appendChild(d);
   return d;
 });
+// 地理参照图层（第 3 层）：山/河/沙漠/海按类型着色加符号，缺省保持原城市样式
+const GEO_KIND = {
+  mountain: { g: "▲ ", color: "#e8d9ae" },
+  river:    { g: "≈ ", color: "#8fc6de" },
+  sea:      { g: "≈ ", color: "#79b9d9" },
+  lake:     { g: "◉ ", color: "#8fc6de" },
+  desert:   { g: "▦ ", color: "#e2c491" },
+  island:   { g: "◇ ", color: "#cfe0d8" },
+};
 const wpEls = DATA.waypointLabels.map((wp) => {
   const d = document.createElement("div");
   d.className = "lbl wp";
-  d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  const k = GEO_KIND[wp.kind];
+  if (k) {
+    d.style.color = k.color;
+    d.innerHTML = `<div class="nm">${k.g}${wp.name}</div>`;
+  } else {
+    d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  }
   el.labels.appendChild(d);
   return d;
 });
@@ -476,6 +501,12 @@ const wpPos = DATA.waypointLabels.map((wp) => {
   p.y = heightAt(lngToWorldX(wp.lng), latToWorldY(wp.lat)) + 5;
   return p;
 });
+
+// 知识卡扩展容器（仅互动模式；第 1 层）——模块级创建一次，render 内只更新内容
+const cardExtra = document.createElement("div");
+cardExtra.style.cssText =
+  "margin-top:10px;padding-top:8px;border-top:1px solid rgba(206,166,92,0.25);font-size:15px;line-height:1.7;color:#c7b993;display:flex;flex-direction:column;gap:4px;max-height:168px;overflow-y:auto;scrollbar-width:thin";
+if (TOP && el.card) el.card.appendChild(cardExtra);
 const tagPos = DATA.tags.map((tg) => {
   const p = w2s(tg.lng, tg.lat);
   p.y = heightAt(lngToWorldX(tg.lng), latToWorldY(tg.lat)) + 6;
@@ -813,6 +844,16 @@ function updateInner(t) {
       el.cardName.textContent = st.name;
       el.cardModern.textContent = `${st.modern} · ${bc}`;
       el.cardText.textContent = st.text;
+      if (TOP) {
+        const lines = [];
+        if (st.note) lines.push(`<div>❖ ${st.note}</div>`);
+        if (st.elev != null) lines.push(`<div>⛰ ${st.elev >= 0 ? "海拔约 " + st.elev + " 米" : "海拔约海平面下 " + (-st.elev) + " 米"}</div>`);
+        if (st.geo) lines.push(`<div>🧭 ${st.geo}</div>`);
+        if (st.quote) lines.push(`<div style="color:#d8c79c">❝${st.quote.t}❞ <span style="color:#8f8266">—— ${st.quote.src}</span></div>`);
+        if (st.world) lines.push(`<div>🌍 同期 · ${st.world}</div>`);
+        if (st.today) lines.push(`<div>🏛 今日 · ${st.today}</div>`);
+        cardExtra.innerHTML = lines.join("");
+      }
       if (st.art) {
         el.cardArt.src = st.art;
         el.cardArt.style.display = "block";
@@ -867,6 +908,7 @@ window.APP = {
   DUR, T_OPEN_END, T_OV, T_CR,
   TK,
   stations: DATA.stations.map((s) => ({ id: s.id, name: s.name, modern: s.modern, year: s.year, major: !!s.major })),
+  segments: (DATA.routeSegments || []).map((s) => ({ from: s.from, to: s.to, type: s.type, name: s.name, note: s.note })),
   title: META.title,
   get t() { return state.t; },
   seek(t) {

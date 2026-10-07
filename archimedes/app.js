@@ -5,7 +5,7 @@ import * as THREE from "three";
 
 const W = 1920, H = 1080;
 
-const DATA = await (await fetch("data/stations.json")).json();
+const DATA = await (await fetch("data/stations.json?v=2")).json();
 const META = DATA.meta;
 const TIMING = META.timing;
 const CAMS = META.camScale || 1; // 竖屏等窄视场的相机距离补偿（默认 1）
@@ -456,10 +456,25 @@ const labelEls = DATA.stations.map((st) => {
   el.labels.appendChild(d);
   return d;
 });
+// 地理参照图层（第 3 层）：山/河/沙漠/海按类型着色加符号（与共享引擎同款实现）
+const GEO_KIND = {
+  mountain: { g: "▲ ", color: "#e8d9ae" },
+  river:    { g: "≈ ", color: "#8fc6de" },
+  sea:      { g: "≈ ", color: "#79b9d9" },
+  lake:     { g: "◉ ", color: "#8fc6de" },
+  desert:   { g: "▦ ", color: "#e2c491" },
+  island:   { g: "◇ ", color: "#cfe0d8" },
+};
 const wpEls = DATA.waypointLabels.map((wp) => {
   const d = document.createElement("div");
   d.className = "lbl wp";
-  d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  const k = GEO_KIND[wp.kind];
+  if (k) {
+    d.style.color = k.color;
+    d.innerHTML = `<div class="nm">${k.g}${wp.name}</div>`;
+  } else {
+    d.innerHTML = `<div class="nm">${wp.name}</div>`;
+  }
   el.labels.appendChild(d);
   return d;
 });
@@ -475,6 +490,12 @@ const wpPos = DATA.waypointLabels.map((wp) => {
   p.y = heightAt(lngToWorldX(wp.lng), latToWorldY(wp.lat)) + 5;
   return p;
 });
+
+// 知识卡扩展容器（仅互动模式；第 1 层）
+const cardExtra = document.createElement("div");
+cardExtra.style.cssText =
+  "margin-top:10px;padding-top:8px;border-top:1px solid rgba(206,166,92,0.25);font-size:15px;line-height:1.7;color:#c7b993;display:flex;flex-direction:column;gap:4px;max-height:168px;overflow-y:auto;scrollbar-width:thin";
+if (TOP && el.card) el.card.appendChild(cardExtra);
 const tagPos = DATA.tags.map((tg) => {
   const p = w2s(tg.lng, tg.lat);
   p.y = heightAt(lngToWorldX(tg.lng), latToWorldY(tg.lat)) + 6;
@@ -811,6 +832,16 @@ function updateInner(t) {
       el.cardName.textContent = st.name;
       el.cardModern.textContent = `${st.modern} · ${bc}`;
       el.cardText.textContent = st.text;
+      if (TOP) {
+        const lines = [];
+        if (st.note) lines.push(`<div>❖ ${st.note}</div>`);
+        if (st.elev != null) lines.push(`<div>⛰ ${st.elev >= 0 ? "海拔约 " + st.elev + " 米" : "海拔约海平面下 " + (-st.elev) + " 米"}</div>`);
+        if (st.geo) lines.push(`<div>🧭 ${st.geo}</div>`);
+        if (st.quote) lines.push(`<div style="color:#d8c79c">❝${st.quote.t}❞ <span style="color:#8f8266">—— ${st.quote.src}</span></div>`);
+        if (st.world) lines.push(`<div>🌍 同期 · ${st.world}</div>`);
+        if (st.today) lines.push(`<div>🏛 今日 · ${st.today}</div>`);
+        cardExtra.innerHTML = lines.join("");
+      }
       if (st.art) {
         el.cardArt.src = st.art;
         el.cardArt.style.display = "block";
@@ -865,6 +896,7 @@ window.APP = {
   DUR, T_OPEN_END, T_OV, T_CR,
   TK,
   stations: DATA.stations.map((s) => ({ id: s.id, name: s.name, modern: s.modern, year: s.year, major: !!s.major })),
+  segments: (DATA.routeSegments || []).map((s) => ({ from: s.from, to: s.to, type: s.type, name: s.name, note: s.note })),
   title: META.title,
   get t() { return state.t; },
   seek(t) {

@@ -1,0 +1,7 @@
+{
+  "corridor": { "west": 65, "east": 112, "south": 23.5, "north": 47 },
+  "margin": 1,
+  "zooms": [7],
+  "z8": { "mode": "full" },
+  "music": "eastern-thought.mp3"
+}

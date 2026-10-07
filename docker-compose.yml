@@ -1,0 +1,35 @@
+name: geohis
+
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: geohis-web
+    ports:
+      - "8913:80"
+    volumes:
+      # 整个仓库只读挂载：site/ 主页 + 各课程目录（含 fetch 下载的瓦片/字体/音乐）
+      - ./:/srv:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/mime-extra.conf:/etc/nginx/conf.d/00-mime-extra.conf:ro
+    depends_on:
+      assets-init:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/courses.json"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  assets-init:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.init
+    container_name: geohis-assets-init
+    volumes:
+      - ./:/srv
+    working_dir: /srv
+    environment:
+      - FETCH_CONCURRENCY=8
+      - GEOHIS_ROOT=/srv
+    restart: "no"

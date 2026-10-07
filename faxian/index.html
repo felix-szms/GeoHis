@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1920, height=1080">
     <title>法显西行</title>
-    <script src="./assets/vendor/gsap.min.js"></script>
+    <script src="./engine/vendor/gsap.min.js?v=2"></script>
     <style>
       @font-face {
         font-family: "MaShanZheng";
@@ -272,7 +272,7 @@
       <audio data-hf-id="hf-nk44" id="bgm" class="clip" data-start="0" data-duration="155.5" data-volume="0.85" data-fade-out="5" data-track-index="10" src="assets/music/eastern-thought.mp3"></audio>
     </div>
     <script type="importmap">
-      { "imports": { "three": "./node_modules/three/build/three.module.js" } }
+      { "imports": { "three": "./engine/vendor/three.module.js?v=2" } }
     </script>
     <script>
       // 实际时间轴在 app.js 模块内注册；此处满足静态检查的注册约定
@@ -281,6 +281,6 @@
       addEventListener("error", (e) => window.__PAGEERR.push(String(e.message) + " @" + (e.filename || "").split("/").pop() + ":" + e.lineno));
       addEventListener("unhandledrejection", (e) => window.__PAGEERR.push("REJ " + String(e.reason)));
     </script>
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./engine/app.js?v=2"></script>
   </body>
 </html>

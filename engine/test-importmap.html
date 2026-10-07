@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>importmap 最小复现</title></head>
+<body>
+  <div id="r">pending</div>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    document.getElementById("r").textContent = "OK rev=" + THREE.REVISION;
+  </script>
+  <script>
+    addEventListener("error", (e) => { document.getElementById("r").textContent = "ERR " + e.message; });
+  </script>
+</body>
+</html>

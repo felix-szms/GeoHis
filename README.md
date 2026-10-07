@@ -22,17 +22,25 @@
 # 0) 前置依赖
 #    Node.js >= 22, ffmpeg (brew install ffmpeg)
 
-# 1) 安装依赖（每个课程项目）
-cd xuanzang && npm install && cd ..
+# 1) 同步引擎到各课程（改过 engine/ 后重跑；幂等）
+node scripts/sync-engine.mjs
 
-# 2) 下载素材（NASA 卫星瓦片 + 字体 + 音乐，全自动）
+# 2) 下载素材（NASA 卫星瓦片 + 字体 + 音乐，全自动，参数在各课程 data/assets.json）
 node scripts/fetch-all.mjs          # 一键下载全部（推荐）
-# 或按项目单独下载
-# cd zhangqian && node scripts/fetch-tiles.mjs && cd ../..
+# 或按课程单独下载
+# cd zhangqian && node ../../engine/fetch-assets.mjs && cd ../..
 
 # 3) 启动网站
 cd site && node scripts/serve.mjs 8913
 # 浏览器打开 http://127.0.0.1:8913
+# 提交前自检：node scripts/validate.mjs
+```
+
+**Docker 一键部署**（推荐，免 Node 环境、自动下载全部素材）：
+
+```bash
+docker compose up -d
+# 浏览器打开 http://127.0.0.1:8913（素材首次下载约 10–25 分钟，详见 deploy/README.md）
 ```
 
 单个课程预览：
@@ -55,43 +63,56 @@ npx hyperframes render --fps 24 -q high -o render/xuanzang_final.mp4
 ## 项目结构
 
 ```
-make_video/
+GeoHis/
 ├── site/                 # 教学网站主页（课程卡片墙 + 系列筛选）
 │   ├── courses.json      # 全站课程清单（标题/封面/路径）
-│   ├── scripts/serve.mjs # 站点服务器：主页 + /courses/<id>/ 路由
-│   └── shared/           # 全站共享字体 + gsap
+│   ├── scripts/serve.mjs # 站点服务器：主页 + /courses/<id>/ + /engine/ 路由
+│   └── shared/           # 全站共享字体（fetch 后生成）
+├── engine/               # ★ 共享引擎（单源，详见 engine/README.md）
+│   ├── app.js            # three.js 地形场景 + 确定性渲染引擎
+│   ├── interactive.js    # 互动驱动器（鼠标/键盘 → 时间轴 seek）
+│   ├── serve.mjs         # 课程独立预览服务器
+│   ├── fetch-assets.mjs  # 参数化素材下载器（读 data/assets.json）
+│   └── vendor/           # gsap + three（已 vendor，运行时零 npm 依赖）
 ├── xuanzang/             # 课程项目（每课一个，可独立渲染）
 │   ├── index.html        # 影片合成（HyperFrames 逐帧渲染入口）
 │   ├── interactive.html  # 互动课堂页（暂停 / 跳站 / 进度记忆 / ?t= 分享）
-│   ├── app.js            # three.js 地形场景 + 确定性渲染引擎
-│   ├── interactive.js    # 互动驱动器（鼠标/键盘 → 时间轴 seek）
-│   ├── data/stations.json# ★ 课程数据（站点/航线/文案/timing）
-│   ├── assets/
-│   │   ├── tiles/        # NASA 卫星贴图 + 高程瓦片（fetch 后生成）
-│   │   ├── fonts/        # 毛笔楷书 + 思源宋体
-│   │   ├── music/        # CC-BY 免版权配乐
-│   │   └── art/          # 公有领域历史插图
-│   └── scripts/fetch-tiles.mjs
-├── archimedes/           # 同上
-├── zhangqian/ faxian/ marcopolo/
-└── engine/               # （预留）共用引擎
+│   ├── data/stations.json# ★ 课程内容数据（站点/航线/文案/timing）
+│   ├── data/assets.json  # ★ 素材参数（瓦片走廊/近景带/配乐）
+│   ├── engine/           # 引擎同步副本（gitignore，sync-engine.mjs 生成）
+│   ├── assets/           # tiles/ fonts/ music/（fetch 后生成）+ art/ 插图
+│   └── scripts/serve.mjs # 垫片 → engine/serve.mjs
+├── archimedes/           # 同上（保留本地变体 app.js：海洋/竖屏光照与相机补偿）
+├── zhangqian/ faxian/ marcopolo/ archimedes_xhs/
+├── scripts/
+│   ├── fetch-all.mjs     # 全部课程素材一键下载（逐课调 engine/fetch-assets.mjs）
+│   ├── sync-engine.mjs   # 引擎单源 → 各课程副本
+│   └── validate.mjs      # 仓库完整性校验（CI 同款）
+└── deploy/               # Docker 部署（nginx + 并行素材下载）
 ```
 
 ## 换一个题材
 
-所有内容都由 `data/stations.json` 驱动。改站点、航线、文案和 `meta.timing`，
-即可在**不写一行新代码**的前提下做出全新课程。详见各项目内 `data/stations.json`
-和 `archimedes/README.md` 中的字段说明。
+内容与素材全部数据驱动，不写新代码即可做出全新课程：
+
+1. 复制任一课程目录框架（保留变体需求选 archimedes），改 `data/stations.json`
+   （站点、航线、文案、`meta.timing`）与 `window.COURSE_ID`
+2. 改 `data/assets.json` 的走廊（corridor）与近景带（z8 zones）
+3. `node scripts/sync-engine.mjs` 同步引擎，`cd <new> && node ../../engine/fetch-assets.mjs` 抓素材
+4. （可选）`npx hyperframes render` 出横屏/竖屏视频
+5. `site/courses.json` 加一条卡片数据 + 生成封面（ffmpeg 抽帧）
+6. `site/scripts/serve.mjs` 的 `COURSE_MOUNTS` 表加一行挂载
+7. `node scripts/validate.mjs` 自检
 
 ## 技术栈
 
 | 层 | 工具 | 说明 |
 |----|------|------|
-| 3D 地形 | three.js | z7 高程网格 + z8 卫星贴图（NASA Blue Marble / AWS） |
-| 时间轴 | GSAP | 全画面状态 = t 的纯函数，确定性逐帧 seek |
+| 3D 地形 | three.js 0.186.1（vendor） | z7 高程网格 + z8 卫星贴图（NASA Blue Marble / AWS） |
+| 时间轴 | GSAP 3.15.0（vendor） | 全画面状态 = t 的纯函数，确定性逐帧 seek |
 | 逐帧渲染 | HyperFrames | Puppeteer + FFmpeg，确定性输出 |
 | 互动 | 原生 JS | 交互模式（`window.__INTERACTIVE`）：北向锁定正俯视 |
-| 部署 | nginx / OSS | 纯静态，无后端 |
+| 部署 | nginx / Docker / OSS | 纯静态，无后端；本地 `docker compose up -d` |
 
 ## 互动课堂功能
 
