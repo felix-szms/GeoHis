@@ -3,7 +3,8 @@ name: geohis-prod
 #   - 不占用宿主机端口（对同机其它容器应用零影响）
 #   - web 接入外部网络 stic_default，由 stic-caddy 以容器名反代：geohis.scitechsz.com → geohis-web:80
 #   - HTTPS 证书由 Caddy 自动签发续期
-# 用法: cd <repo> && docker compose -f deploy/docker-compose.prod.yml up -d --build
+# 用法: cd <repo> && docker compose -f deploy/docker-compose.prod.yml --project-directory . up -d --build
+# （--project-directory . 使相对路径均以仓库根为基准）
 services:
   web:
     image: nginx:1.27-alpine
