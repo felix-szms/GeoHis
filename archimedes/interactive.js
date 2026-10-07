@@ -11,6 +11,7 @@ const ui = {
   modeFollow: $("modeFollow"), modeOverview: $("modeOverview"),
   mute: $("muteBtn"), videoLink: $("videoLink"), brand: $("brand"),
   bgm: $("bgm"), loader: $("loader"), loaderBar: $("loaderBar"),
+  speed: $("speedBtn"), fs: $("fsBtn"), yr: $("yr"),
   root: $("root"),
 };
 
@@ -30,18 +31,33 @@ const fmt = (s) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
+// 当前历史年份：按站点到达时间线性插值
+function yearAt(t) {
+  const st = APP.stations, TK = APP.TK;
+  if (t <= TK[0]) return st[0].year;
+  for (let k = 0; k < st.length - 1; k++) {
+    if (t >= TK[k] && t <= TK[k + 1]) {
+      const f = (t - TK[k]) / (TK[k + 1] - TK[k]);
+      return Math.round(st[k].year + (st[k + 1].year - st[k].year) * f);
+    }
+  }
+  return st[st.length - 1].year;
+}
+
+
 // ---------- 状态 ----------
 let playing = false;
 let raf = null;
 let last = null;
 let dragging = false;
+let rate = 1; // 播放倍速
 let jumps = []; // [{t,label,el}] 章节+站点统一跳转表
 
 // ---------- 播放循环 ----------
 function loop(ts) {
   if (last != null) {
     const dt = Math.min(0.12, (ts - last) / 1000);
-    const ended = APP.advance(dt);
+    const ended = APP.advance(dt * rate);
     syncUI();
     if (ended) { pause(true); return; }
   }
@@ -97,6 +113,8 @@ function syncUI() {
     ui.progress.style.setProperty("--p", pct + "%");
   }
   ui.time.textContent = `${fmt(t)} / ${fmt(APP.DUR)}`;
+    const yv = yearAt(t);
+    if (ui.yr) ui.yr.textContent = yv < 0 ? `前${-yv}年` : `${yv}年`;
   const st = APP.stationAt(t);
   const idx = APP.stations.findIndex((s) => s.id === st.id);
   ui.now.innerHTML = `第 ${String(st.id).padStart(2, "0")} 站 · ${st.name}<small>${st.modern}</small>`;
@@ -152,6 +170,19 @@ function buildUI() {
   ].sort((a, b) => a.t - b.t);
 
   // 控件事件
+
+  // 倍速 / 全屏
+  const RATES = [[0.5, "½x"], [1, "1x"], [2, "2x"]];
+  let rateIdx = 1;
+  if (ui.speed) ui.speed.onclick = () => {
+    rateIdx = (rateIdx + 1) % RATES.length;
+    rate = RATES[rateIdx][0];
+    ui.speed.textContent = RATES[rateIdx][1];
+  };
+  if (ui.fs) ui.fs.onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  };
   ui.play.onclick = toggle;
   ui.prev.onclick = () => jumpDelta(-1);
   ui.next.onclick = () => jumpDelta(1);
@@ -196,6 +227,7 @@ function buildUI() {
     else if (e.key === "ArrowLeft") jumpDelta(-1);
     else if (e.key === "o" || e.key === "O") setMode(!APP.isOverview());
     else if (e.key === "m" || e.key === "M") ui.mute.onclick();
+    else if (e.key === "f" || e.key === "F") ui.fs && ui.fs.onclick();
   });
 
   // 初始：片头 + 跟随模式

@@ -301,6 +301,9 @@
         #panel { width: 232px; }
         #nowplaying { min-width: 0; }
       }
+      #hud-elev { display: block; margin-top: 14px; border: 1px solid rgba(206,166,92,0.25); background: rgba(10,8,5,0.35); }
+      #yr { color: #e0d4b0; font-size: 16px; letter-spacing: 0.14em; }
+      #speedBtn, #fsBtn { min-width: 46px; text-align: center; }
     </style>
   </head>
   <body>
@@ -337,6 +340,7 @@
         <div id="hud-coord">N 37.07° · E 15.29°</div>
         <div id="hud-km-row"><span id="hud-km">0</span><span id="hud-km-unit">公里</span></div>
         <div id="hud-track"><div id="hud-bar"></div></div>
+        <canvas id="hud-elev" width="300" height="56"></canvas>
       </div>
 
       <div id="stationcard">
@@ -393,7 +397,10 @@
             <button class="btn icon" id="playBtn" title="播放/暂停（空格）">▶</button>
             <button class="btn icon" id="prevBtn" title="上一站（←）">⏮</button>
             <button class="btn icon" id="nextBtn" title="下一站（→）">⏭</button>
+            <button class="btn icon" id="speedBtn" title="倍速">1x</button>
+            <button class="btn icon" id="fsBtn" title="全屏（F）">⛶</button>
             <div id="nowplaying">—<small id="keys">←→ 站点 · 空格 播放 · O 总览 · M 静音</small></div>
+            <span id="yr"></span>
             <span id="time">0:00 / 1:00</span>
           </div>
         </div>

@@ -190,6 +190,9 @@
       #credits .rend { margin-top: 56px; color: #6f6650; font-size: 14px; letter-spacing: 0.2em; font-family: Georgia, serif; }
 
       #fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 20; pointer-events: none; }
+      #hud-elev { display: block; margin-top: 14px; border: 1px solid rgba(206,166,92,0.25); background: rgba(10,8,5,0.35); }
+      #yr { color: #e0d4b0; font-size: 16px; letter-spacing: 0.14em; }
+      #speedBtn, #fsBtn { min-width: 46px; text-align: center; }
     </style>
   </head>
   <body>
@@ -226,6 +229,7 @@
         <div data-hf-id="hf-tnzu" id="hud-coord">N 37.07° · E 15.29°</div>
         <div data-hf-id="hf-6pny" id="hud-km-row"><span data-hf-id="hf-mdc6" id="hud-km">0</span><span data-hf-id="hf-isc1" id="hud-km-unit">公里</span></div>
         <div data-hf-id="hf-o17q" id="hud-track"><div data-hf-id="hf-6vus" id="hud-bar"></div></div>
+        <canvas id="hud-elev" width="300" height="56"></canvas>
       </div>
 
       <div data-hf-id="hf-yqo7" id="stationcard" data-start="0" data-duration="60" data-track-index="6">

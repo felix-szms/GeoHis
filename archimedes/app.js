@@ -372,6 +372,58 @@ const TK = (() => {
   return tk;
 })();
 
+// ---------- 路线高程剖面（DEM 采样） ----------
+const ELEV_N = 160;
+const elevData = [];
+let elevMin = Infinity, elevMax = -Infinity;
+for (let i = 0; i < ELEV_N; i++) {
+  const p3 = curve.getPointAt(i / (ELEV_N - 1));
+  const em = Math.max(0, Math.round(heightAt(p3.x + CX, p3.z + CY) / UNITS_PER_METER));
+  elevData.push(em);
+  elevMin = Math.min(elevMin, em);
+  elevMax = Math.max(elevMax, em);
+}
+if (elevMax - elevMin < 50) elevMax = elevMin + 50; // 全程平直（海路）时避免除零
+
+function drawElev(u) {
+  const c = el.hudElev;
+  if (!c) return;
+  const g = c.getContext("2d");
+  const CW = c.width, CH = c.height;
+  g.clearRect(0, 0, CW, CH);
+  const n = elevData.length;
+  const yOf = (v) => CH - 5 - ((v - elevMin) / (elevMax - elevMin)) * (CH - 13);
+  // 剖面填充
+  g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * CW;
+    i === 0 ? g.moveTo(x, yOf(elevData[i])) : g.lineTo(x, yOf(elevData[i]));
+  }
+  g.lineTo(CW, CH); g.lineTo(0, CH); g.closePath();
+  const grd = g.createLinearGradient(0, 0, 0, CH);
+  grd.addColorStop(0, "rgba(240,205,126,0.34)");
+  grd.addColorStop(1, "rgba(240,205,126,0.04)");
+  g.fillStyle = grd;
+  g.fill();
+  g.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * CW;
+    i === 0 ? g.moveTo(x, yOf(elevData[i])) : g.lineTo(x, yOf(elevData[i]));
+  }
+  g.strokeStyle = "#f0cd7e";
+  g.lineWidth = 1.4;
+  g.stroke();
+  // 当前位置
+  const mx = u * CW, mi = Math.round(u * (n - 1)), my = yOf(elevData[mi]);
+  g.strokeStyle = "rgba(255,243,208,0.45)";
+  g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, CH); g.stroke();
+  g.fillStyle = "#fff3d0";
+  g.beginPath(); g.arc(mx, my, 3.5, 0, Math.PI * 2); g.fill();
+  g.font = "12px Georgia";
+  g.fillStyle = "#e8d9a0";
+  g.fillText(`${Math.round(elevData[mi])}m`, Math.min(CW - 38, mx + 6), Math.max(12, my - 7));
+}
+
 // ---------- DOM 注入（题材文案全部来自 data） ----------
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -380,7 +432,7 @@ const el = {
   card: $("stationcard"), cardNo: $("card-no"), cardCoord: $("card-coord"),
   cardArt: $("card-art"), cardTitle: $("card-title"), cardName: $("card-name"),
   cardModern: $("card-modern"), cardText: $("card-text"),
-  hud: $("hud"), hudCoord: $("hud-coord"), hudKm: $("hud-km"), hudBar: $("hud-bar"),
+  hud: $("hud"), hudCoord: $("hud-coord"), hudKm: $("hud-km"), hudBar: $("hud-bar"), hudElev: $("hud-elev"),
   topright: $("topright"), trNum: $("tr-num"), trRegion: $("tr-region"),
   topleft: $("topleft"), tlEra: $("tl-era"), tlMark: $("tl-mark"), tlWm: $("tl-wm"),
   labels: $("labels"), overview: $("overview"), ovH1: $("ov-h1"), ovEra: $("ov-era"),
@@ -708,6 +760,7 @@ function updateInner(t) {
     const km = Math.round(u * TOTAL_KM);
     el.hudKm.textContent = km.toLocaleString("en-US");
     el.hudBar.style.width = `${(u * 100).toFixed(2)}%`;
+    drawElev(u);
   }
 
   // 右上 STATION
@@ -839,5 +892,60 @@ window.APP = {
     return { id: st.id, name: st.name, modern: st.modern, year: st.year };
   },
 };
+
+// ---------- 地图点站 + 悬停预览（仅互动模式） ----------
+if (TOP) {
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const hitMeshes = DATA.stations.map((st, i) => {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(18, 8, 8),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    m.position.copy(stationPos[i]);
+    m.userData.idx = i;
+    scene.add(m);
+    return m;
+  });
+  let tip = null;
+  function ensureTip() {
+    if (tip) return tip;
+    tip = document.createElement("div");
+    tip.style.cssText = "position:absolute;z-index:26;pointer-events:none;display:none;background:rgba(12,9,6,0.92);border:1px solid rgba(206,166,92,0.4);color:#f3e2b3;padding:6px 14px;font-size:16px;letter-spacing:0.1em;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,0.5)";
+    document.getElementById("root").appendChild(tip);
+    return tip;
+  }
+  function pick(ev) {
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(hitMeshes);
+    return hits.length ? hits[0].object.userData.idx : -1;
+  }
+  canvas.addEventListener("pointermove", (ev) => {
+    const idx = pick(ev);
+    if (idx >= 0) {
+      canvas.style.cursor = "pointer";
+      const t2 = ensureTip();
+      t2.textContent = `${String(idx + 1).padStart(2, "0")} ${DATA.stations[idx].name}`;
+      const rootRect = document.getElementById("root").getBoundingClientRect();
+      const sx = (ev.clientX - rootRect.left) / (rootRect.width / W);
+      const sy = (ev.clientY - rootRect.top) / (rootRect.height / H);
+      t2.style.left = `${sx + 16}px`;
+      t2.style.top = `${sy - 36}px`;
+      t2.style.display = "block";
+    } else {
+      canvas.style.cursor = "default";
+      if (tip) tip.style.display = "none";
+    }
+  });
+  canvas.addEventListener("click", (ev) => {
+    const idx = pick(ev);
+    if (idx >= 0 && window.APP) {
+      window.APP.flyTo(Math.min(DUR - 1, TK[idx] + 0.05), 1.6);
+    }
+  });
+}
+
 tl.seek(0);
 render();
