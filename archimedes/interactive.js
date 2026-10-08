@@ -134,6 +134,7 @@ function updateSegChip(t, st) {
       segChip.innerHTML =
         `<span style="color:#9fb8c9;font-size:13px;letter-spacing:.2em">${TYPE_LBL[seg.type] || seg.type} · 地形</span>` +
         `<span style="color:#efe0b5">${seg.name}</span>` +
+        (seg.dur ? `<span style="color:#c9a06a;font-size:13px">⏱ ${seg.dur}</span>` : "") +
         (seg.note ? `<span style="color:#a5987a;font-size:13px">— ${seg.note}</span>` : "");
     }
     segChip.style.opacity = "1";

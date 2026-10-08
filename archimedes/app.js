@@ -148,6 +148,33 @@ if (TOP) {
     texLoader.load("engine/vendor/world-z4.jpg", res, undefined, () => res(null))));
 }
 
+// ---------- 动态比例尺（仅互动模式，与共享引擎同款） ----------
+const scaleBar = document.createElement("div");
+scaleBar.style.cssText =
+  "position:absolute;right:18px;bottom:330px;z-index:22;pointer-events:none;color:#c9b98f;" +
+  "font-size:12.5px;letter-spacing:.1em;text-align:right;opacity:.92";
+scaleBar.innerHTML =
+  `<div style="margin-bottom:4px">500 公里</div>` +
+  `<div style="height:0;border-bottom:2px solid rgba(201,185,143,.85);border-left:2px solid rgba(201,185,143,.85);border-right:2px solid rgba(201,185,143,.85);width:96px;box-shadow:0 1px 8px rgba(0,0,0,.5)"></div>`;
+if (TOP) (document.getElementById("ui") || document.body).appendChild(scaleBar);
+let __lastScaleKey = "";
+function updateScaleBar() {
+  if (!TOP) return;
+  const h = Math.max(90, camera.position.y - camLook.y);
+  const visH = 2 * h * Math.tan(HFIZ / 2);
+  const lat = yToLat(camLook.z + CY, TILE);
+  const kmPerPx = (40075.0168 / (Math.pow(2, TILE) * PX)) * Math.cos((lat * Math.PI) / 180);
+  const km96 = kmPerPx * (visH / 1080) * 96;
+  const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].reduce((a, b) =>
+    Math.abs(b - km96) < Math.abs(a - km96) ? b : a);
+  const px = Math.round(nice / kmPerPx / (visH / 1080));
+  const key = nice + ":" + px;
+  if (key === __lastScaleKey) return;
+  __lastScaleKey = key;
+  scaleBar.children[0].textContent = nice >= 1000 ? (nice / 1000) + " 千公里" : nice + " 公里";
+  scaleBar.children[1].style.width = Math.max(44, Math.min(170, px)) + "px";
+}
+
 const w2s = (lng, lat) => {
   const wx = lngToX(lng, TILE) - CX;
   const wy = latToY(lat, TILE) - CY;
@@ -580,8 +607,11 @@ const wpPos = DATA.waypointLabels.map((wp) => {
 
 // 知识卡扩展容器（仅互动模式；第 1 层）
 const cardExtra = document.createElement("div");
-// 分页签渲染（与共享引擎同款）：摘要/地理/史料/同期/今日，页签选择跨站点保持
+// 分页签渲染（与共享引擎同款）：顶部关键问题 + 摘要/地理/史料/人物/同期/今日，页签选择跨站点保持
 function renderCardExtra(st) {
+  const qBox = st.question
+    ? `<div style="margin-bottom:8px;padding:7px 11px;border-left:3px solid rgba(240,205,126,.6);background:rgba(240,205,126,.07);color:#e8d5a0;font-size:14.5px;line-height:1.6">❓ ${st.question}</div>`
+    : "";
   const secs = [];
   if (st.note) secs.push(["❖ 摘要", `<div>❖ ${st.note}</div>`]);
   const geo = [];
@@ -589,12 +619,15 @@ function renderCardExtra(st) {
   if (st.geo) geo.push(`<div>🧭 ${st.geo}</div>`);
   if (geo.length) secs.push(["⛰ 地理", geo.join("")]);
   if (st.quote) secs.push(["❝ 史料", `<div style="color:#d8c79c">❝${st.quote.t}❞ <span style="color:#8f8266">—— ${st.quote.src}</span></div>`]);
+  if (st.figures && st.figures.length)
+    secs.push(["👤 人物", st.figures.map((f) => `<div><span style="color:#efe0b5">${f.name}</span><span style="color:#8f8266"> · ${f.role}</span></div>`).join("")]);
   if (st.world) secs.push(["🌍 同期", `<div>${st.world}</div>`]);
   if (st.today) secs.push(["🏛 今日", `<div>${st.today}</div>`]);
-  if (!secs.length) { cardExtra.innerHTML = ""; return; }
-  if (secs.length === 1) { cardExtra.innerHTML = secs[0][1]; return; }
+  if (!secs.length) { cardExtra.innerHTML = qBox || ""; return; }
+  if (secs.length === 1) { cardExtra.innerHTML = qBox + secs[0][1]; return; }
   const cur = Math.min(+(cardExtra.dataset.tab || 0), secs.length - 1);
   cardExtra.innerHTML =
+    qBox +
     `<div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">` +
     secs.map((s, i) =>
       `<span data-tab="${i}" style="cursor:pointer;padding:2px 9px;font-size:12.5px;letter-spacing:.1em;border:1px solid ` +
@@ -875,6 +908,7 @@ function updateInner(t) {
   headGlow.material.opacity = routeMatOpacity;
 
   updateCamera(t, u);
+  updateScaleBar();
 
   const inOverview = t >= T_OV - 4;
   const dim = t > T_CR + 1 ? 1 - sstep(T_CR + 1, T_CR + 3, t) : 1;
@@ -1026,7 +1060,7 @@ window.APP = {
   DUR, T_OPEN_END, T_OV, T_CR,
   TK,
   stations: DATA.stations.map((s) => ({ id: s.id, name: s.name, modern: s.modern, year: s.year, major: !!s.major })),
-  segments: (DATA.routeSegments || []).map((s) => ({ from: s.from, to: s.to, type: s.type, name: s.name, note: s.note })),
+  segments: (DATA.routeSegments || []).map((s) => ({ from: s.from, to: s.to, type: s.type, name: s.name, note: s.note, dur: s.dur })),
   title: META.title,
   get t() { return state.t; },
   seek(t) {
