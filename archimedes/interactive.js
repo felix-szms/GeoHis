@@ -266,6 +266,8 @@ function buildUI() {
   });
 
   // 地图交互提示（拖拽/缩放为运行时注入的能力，提示文案随之动态补全）
+  // 修复：syncUI 每帧覆写 #nowplaying.innerHTML 会连带销毁 #keys —— 先移出到父级使其常驻
+  if (ui.keys && ui.now && ui.keys.parentNode === ui.now) ui.now.parentNode.appendChild(ui.keys);
   if (ui.keys) ui.keys.textContent += " · 拖拽平移 · 滚轮缩放 · R 复位";
 
   // 初始：片头 + 跟随模式
