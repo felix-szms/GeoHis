@@ -16,6 +16,9 @@ work-*
 **/assets/music/
 site/shared/fonts/
 
+# 构建缓存（全球底图瓦片缓存）
+scripts/.worldtiles/
+
 # 引擎同步副本（单源在根 engine/，用 scripts/sync-engine.mjs 重新生成）
 */engine/
 

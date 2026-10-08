@@ -168,6 +168,7 @@ function spreadFiles() {
       const dst = A(c, "music/eastern-thought.mp3");
       if (!existsSync(dst)) cpSync(musicSrc, dst);
     }
+  // 全球底图 world-z4.jpg 位于 engine/vendor/（随仓库与 sync-engine 分发），此处无需处理
 }
 
 (async () => {

@@ -125,6 +125,31 @@ await Promise.all(promises);
 const CX = (lngToX(corridor.west, TILE) + lngToX(corridor.east, TILE)) / 2;
 const CY = (latToY(corridor.north, TILE) + latToY(corridor.south, TILE)) / 2;
 
+// ---------- 世界底图：全球 z4 卫星拼图（engine/vendor/world-z4.jpg） ----------
+// 与瓦片同一 Web Mercator 坐标系：经度 0°/赤道对齐场景原点，走廊地形自然叠加在正确位置。
+// 视频模式模块级等待（保证逐帧确定性）；互动模式后台加载、就绪即热替换，不拖慢首屏。
+// 材质 fog:false —— 不受远景雾衰减，拉远仍是完整世界；衬底保留在最底层兜住极区尽头。
+const WORLD_SIZE = Math.pow(2, TILE) * PX; // 全球 Mercator 全幅（z7 度量）
+const worldMat = new THREE.MeshBasicMaterial({ color: 0x171108, fog: false });
+const worldPlane = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE), worldMat);
+worldPlane.rotation.x = -Math.PI / 2;
+worldPlane.position.set(WORLD_SIZE / 2 - CX, -6, WORLD_SIZE / 2 - CY);
+scene.add(worldPlane);
+const applyWorldTex = (tex) => {
+  if (!tex) return;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  worldMat.map = tex;
+  worldMat.color.set(0xffffff);
+  worldMat.needsUpdate = true;
+};
+if (TOP) {
+  texLoader.load("engine/vendor/world-z4.jpg", applyWorldTex, undefined, () => {});
+} else {
+  applyWorldTex(await new Promise((res) =>
+    texLoader.load("engine/vendor/world-z4.jpg", res, undefined, () => res(null))));
+}
+
 const w2s = (lng, lat) => {
   const wx = lngToX(lng, TILE) - CX;
   const wy = latToY(lat, TILE) - CY;
@@ -644,13 +669,14 @@ function updateCamera(t, u) {
     camLook.copy(oLook).lerp(jLook, m1);
     camPos.lerp(oPos, m2);
     camLook.lerp(oLook, m2);
-    // 用户视口：正俯视下的平移（刚体偏移）与缩放（高度缩放），并把观察目标夹回地形范围
+    // 用户视口：正俯视下的平移（刚体偏移）与缩放（高度缩放）；平移边界放宽到全球底图范围
     camPos.x += VP.panX; camPos.z += VP.panZ;
     camLook.x += VP.panX; camLook.z += VP.panZ;
     {
-      const mgnX = (MESH_MAXX - MESH_MINX) * 0.2, mgnZ = (MESH_MAXZ - MESH_MINZ) * 0.2;
-      const clx = Math.max(MESH_MINX - mgnX, Math.min(MESH_MAXX + mgnX, camLook.x));
-      const clz = Math.max(MESH_MINZ - mgnZ, Math.min(MESH_MAXZ + mgnZ, camLook.z));
+      const wx0 = -CX - WORLD_SIZE * 0.1, wx1 = -CX + WORLD_SIZE * 1.1;
+      const wz0 = -CY - WORLD_SIZE * 0.1, wz1 = -CY + WORLD_SIZE * 1.1;
+      const clx = Math.max(wx0, Math.min(wx1, camLook.x));
+      const clz = Math.max(wz0, Math.min(wz1, camLook.z));
       VP.panX += clx - camLook.x; VP.panZ += clz - camLook.z;
       camPos.x += clx - camLook.x; camPos.z += clz - camLook.z;
       camLook.x = clx; camLook.z = clz;

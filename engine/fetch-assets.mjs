@@ -141,5 +141,6 @@ async function music() {
       if (existsSync(src)) cpSync(src, path.join(shared, name));
     }
   }
+  // 全球底图 world-z4.jpg 位于 engine/vendor/（随仓库与 sync-engine 分发），此处无需处理
   console.log(`完成：ok=${ok} skip=${skip} fail=${fail}`);
 })();
