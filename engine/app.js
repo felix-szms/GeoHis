@@ -12,6 +12,9 @@ const TIMING = META.timing;
 // ---------- 交互模式（教学网页设 window.__INTERACTIVE = true） ----------
 // 视频渲染：电影运镜；互动网页：北向锁定上帝视角
 const TOP = !!window.__INTERACTIVE;
+// 用户视口（仅互动模式）：拖拽平移 + 滚轮缩放。是纯视口变换，不触碰时间轴，
+// 视频渲染（TOP=false）完全不受影响
+const VP = { panX: 0, panZ: 0, zoom: 1 };
 // 站点所属旅程段：数据未写 leg 时按 legSplit 阈值推断（兼容玄奘数据）
 const legOf = (st) => st.leg || (st.id <= (META.legSplit ?? DATA.stations.length) ? "out" : "ret");
 
@@ -641,6 +644,18 @@ function updateCamera(t, u) {
     camLook.copy(oLook).lerp(jLook, m1);
     camPos.lerp(oPos, m2);
     camLook.lerp(oLook, m2);
+    // 用户视口：正俯视下的平移（刚体偏移）与缩放（高度缩放），并把观察目标夹回地形范围
+    camPos.x += VP.panX; camPos.z += VP.panZ;
+    camLook.x += VP.panX; camLook.z += VP.panZ;
+    {
+      const mgnX = (MESH_MAXX - MESH_MINX) * 0.2, mgnZ = (MESH_MAXZ - MESH_MINZ) * 0.2;
+      const clx = Math.max(MESH_MINX - mgnX, Math.min(MESH_MAXX + mgnX, camLook.x));
+      const clz = Math.max(MESH_MINZ - mgnZ, Math.min(MESH_MAXZ + mgnZ, camLook.z));
+      VP.panX += clx - camLook.x; VP.panZ += clz - camLook.z;
+      camPos.x += clx - camLook.x; camPos.z += clz - camLook.z;
+      camLook.x = clx; camLook.z = clz;
+    }
+    camPos.y = camLook.y + Math.max(90, (camPos.y - camLook.y) / VP.zoom);
     camera.position.copy(camPos);
     camera.up.set(0, 0, -1); // 正俯视下 up=-Z：画面上方恒为北
     camera.lookAt(camLook);
@@ -973,7 +988,7 @@ if (TOP) {
   const pointer = new THREE.Vector2();
   const hitMeshes = DATA.stations.map((st, i) => {
     const m = new THREE.Mesh(
-      new THREE.SphereGeometry(18, 8, 8),
+      new THREE.SphereGeometry(56, 8, 8), // 拾取热区大于视觉标记：总览视角下也好点中
       new THREE.MeshBasicMaterial({ visible: false })
     );
     m.position.copy(stationPos[i]);
@@ -1009,16 +1024,91 @@ if (TOP) {
       t2.style.top = `${sy - 36}px`;
       t2.style.display = "block";
     } else {
-      canvas.style.cursor = "default";
+      canvas.style.cursor = "grab";
       if (tip) tip.style.display = "none";
     }
   });
   canvas.addEventListener("click", (ev) => {
+    if (dragMoved > 6) return; // 拖拽后松手不触发跳站
     const idx = pick(ev);
     if (idx >= 0 && window.APP) {
       window.APP.flyTo(Math.min(DUR - 1, TK[idx] + 0.05), 1.6);
     }
   });
+
+  // ---------- 视口控制：拖拽平移 / 滚轮缩放（不动时间轴；视频渲染不受影响） ----------
+  canvas.style.touchAction = "none"; // 触屏拖拽不滚动页面
+  const worldPerCssPx = () => {
+    const h = Math.max(1, camera.position.y - camLook.y);
+    return (2 * h * Math.tan((camera.fov * Math.PI) / 360)) / canvas.getBoundingClientRect().height;
+  };
+  const applyViewport = () => update(state.t);
+  const clampZoom = () => { VP.zoom = Math.max(0.35, Math.min(12, VP.zoom)); };
+
+  let dragId = -1, dragMoved = 0, lastPX = 0, lastPY = 0;
+  canvas.addEventListener("pointerdown", (ev) => {
+    dragId = ev.pointerId; dragMoved = 0; lastPX = ev.clientX; lastPY = ev.clientY;
+    try { canvas.setPointerCapture(ev.pointerId); } catch (e) {}
+  });
+  canvas.addEventListener("pointermove", (ev) => {
+    if (dragId !== ev.pointerId) return;
+    const dx = ev.clientX - lastPX, dy = ev.clientY - lastPY;
+    lastPX = ev.clientX; lastPY = ev.clientY;
+    dragMoved += Math.abs(dx) + Math.abs(dy);
+    if (dragMoved < 4) return;
+    canvas.style.cursor = "grabbing";
+    if (tip) tip.style.display = "none";
+    const s = worldPerCssPx(); // 屏幕「下」= 世界 +Z，画面随光标平移
+    VP.panX -= dx * s;
+    VP.panZ -= dy * s;
+    applyViewport();
+  });
+  const endDrag = (ev) => {
+    if (dragId === ev.pointerId) { dragId = -1; canvas.style.cursor = "default"; }
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    // 光标位置换算到以画面中心为原点的设计空间（正俯视下 屏幕「下」= 世界 +Z）
+    const px = ((ev.clientX - rect.left) / rect.width) * W - W / 2;
+    const py = ((ev.clientY - rect.top) / rect.height) * H - H / 2;
+    const before = worldPerCssPx();
+    VP.zoom *= Math.exp(-ev.deltaY * 0.0014);
+    clampZoom();
+    applyViewport();
+    const after = worldPerCssPx();
+    // 缩放对准光标：保持光标下的世界点不动
+    VP.panX += px * (before - after);
+    VP.panZ += py * (before - after);
+    applyViewport();
+  }, { passive: false });
+
+  function resetViewport() { VP.panX = 0; VP.panZ = 0; VP.zoom = 1; applyViewport(); }
+  function zoomStep(k) { VP.zoom *= k; clampZoom(); applyViewport(); }
+  if (window.APP) {
+    window.APP.resetViewport = resetViewport;
+    window.APP.zoomStep = zoomStep;
+  }
+
+  // 缩放控件（含触屏场景）
+  const vb = document.createElement("div");
+  vb.style.cssText = "position:absolute;right:16px;bottom:170px;z-index:24;display:flex;flex-direction:column;gap:8px";
+  const mkVBtn = (label, fn, title) => {
+    const b = document.createElement("button");
+    b.textContent = label; b.title = title;
+    b.style.cssText = "width:42px;height:42px;font-size:21px;color:#e8d9ae;background:rgba(12,9,6,0.82);border:1px solid rgba(206,166,92,0.45);border-radius:6px;cursor:pointer;line-height:1";
+    b.onpointerdown = (e) => e.stopPropagation();
+    b.onclick = (e) => { e.stopPropagation(); fn(); };
+    vb.appendChild(b);
+  };
+  mkVBtn("＋", () => zoomStep(1.35), "放大");
+  mkVBtn("－", () => zoomStep(1 / 1.35), "缩小");
+  mkVBtn("⟲", resetViewport, "复位视图（R）");
+  const uiRoot = document.getElementById("ui");
+  if (uiRoot) uiRoot.appendChild(vb);
 }
 
 tl.seek(0);

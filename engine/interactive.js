@@ -261,7 +261,11 @@ function buildUI() {
     else if (e.key === "o" || e.key === "O") setMode(!APP.isOverview());
     else if (e.key === "m" || e.key === "M") ui.mute.onclick();
     else if (e.key === "f" || e.key === "F") ui.fs && ui.fs.onclick();
+    else if (e.key === "r" || e.key === "R") APP.resetViewport && APP.resetViewport();
   });
+
+  // 地图交互提示（拖拽/缩放为运行时注入的能力，提示文案随之动态补全）
+  if (ui.keys) ui.keys.textContent += " · 拖拽平移 · 滚轮缩放 · R 复位";
 
   // 初始：片头 + 跟随模式
   APP.setOverview(false);
