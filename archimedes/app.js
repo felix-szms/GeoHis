@@ -171,7 +171,20 @@ async function awaitTileTexture(x, y) {
   return tex;
 }
 
+const terrainMats = [];
+const texJobs = []; // 贴图请求全部先发出（浏览器自行限并发），几何体构建不再被逐瓦片 await 阻塞
+const texCells = [];
 const SEGS = 32;
+// 互动模式首屏只取 z7（瓦片量 ~1/5，场景尽快可玩），z8 在模块就绪后后台逐格升级
+// 视频渲染（TOP=false）仍等待完整 z8，确定性逐帧输出不受影响
+const z7Texture = async (x, y) => {
+  const img = await loadImg(`assets/tiles/sat/${TILE}/${x}/${y}.jpg`);
+  if (!img) return null;
+  const t = new THREE.CanvasTexture(img);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+};
 for (let x = TX0; x <= TX1; x++) {
   for (let y = TY0; y <= TY1; y++) {
     const geo = new THREE.BufferGeometry();
@@ -193,14 +206,44 @@ for (let x = TX0; x <= TX1; x++) {
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const tex = await awaitTileTexture(x, y);
+    texJobs.push(TOP ? z7Texture(x, y) : awaitTileTexture(x, y));
+    texCells.push({ x, y });
     const mat = new THREE.MeshStandardMaterial({
-      map: tex, roughness: 0.96, metalness: 0, color: tex ? 0xffffff : 0x1a150e,
+      roughness: 0.96, metalness: 0, color: 0x1a150e,
       // 海路题材：深海贴图极暗，用同贴图低强度自发光保持海底纹理可见
-      emissive: 0x8a8fa6, emissiveMap: tex, emissiveIntensity: tex ? 0.8 : 0,
+      emissive: 0x8a8fa6, emissiveIntensity: 0,
     });
+    terrainMats.push(mat);
     scene.add(new THREE.Mesh(geo, mat));
   }
+}
+// 等全部贴图就绪后回填材质：保持「模块求值完成 = 场景完整」的确定性语义（逐帧渲染依赖）
+(await Promise.all(texJobs)).forEach((tex, i) => {
+  if (!tex) return;
+  const mat = terrainMats[i];
+  mat.map = tex;
+  mat.emissiveMap = tex;
+  mat.emissiveIntensity = 0.8; // 海路题材：保持海底纹理可见
+  mat.color.set(0xffffff);
+  mat.needsUpdate = true;
+});
+
+// 互动模式：z8 近景贴图后台逐格升级（不阻塞交互）
+if (TOP) {
+  (async () => {
+    for (let i = 0; i < texCells.length; i++) {
+      try {
+        const tex = await awaitTileTexture(texCells[i].x, texCells[i].y);
+        if (!tex) continue;
+        const mat = terrainMats[i];
+        if (mat.map && mat.map !== tex) mat.map.dispose();
+        mat.map = tex;
+        mat.emissiveMap = tex;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+      } catch { /* 单格失败无妨，保留 z7 */ }
+    }
+  })();
 }
 
 // ---------- 路线 ----------

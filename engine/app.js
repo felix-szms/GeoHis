@@ -173,7 +173,18 @@ async function awaitTileTexture(x, y) {
 
 const terrainMats = [];
 const texJobs = []; // 贴图请求全部先发出（浏览器自行限并发），几何体构建不再被逐瓦片 await 阻塞
+const texCells = []; // 记录各 cell 坐标，供互动模式的后台 z8 升级使用
 const SEGS = 32;
+// 互动模式首屏只取 z7（瓦片量 ~1/5，场景尽快可玩），z8 在模块就绪后后台逐格升级
+// 视频渲染（TOP=false）仍等待完整 z8，确定性逐帧输出不受影响
+const z7Texture = async (x, y) => {
+  const img = await loadImg(`assets/tiles/sat/${TILE}/${x}/${y}.jpg`);
+  if (!img) return null;
+  const t = new THREE.CanvasTexture(img);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+};
 for (let x = TX0; x <= TX1; x++) {
   for (let y = TY0; y <= TY1; y++) {
     const geo = new THREE.BufferGeometry();
@@ -195,7 +206,8 @@ for (let x = TX0; x <= TX1; x++) {
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    texJobs.push(awaitTileTexture(x, y));
+    texJobs.push(TOP ? z7Texture(x, y) : awaitTileTexture(x, y));
+    texCells.push({ x, y });
     const mat = new THREE.MeshStandardMaterial({
       roughness: 0.96, metalness: 0, color: 0x1a150e,
       emissive: 0x8a8fa6, emissiveIntensity: 0, // 互动模式动态提亮暗部（海洋/高纬）
@@ -213,6 +225,24 @@ for (let x = TX0; x <= TX1; x++) {
   mat.color.set(0xffffff);
   mat.needsUpdate = true;
 });
+
+// 互动模式：z8 近景贴图后台逐格升级（不阻塞交互；每格 4 张子瓦片，浏览器限并发天然平滑）
+if (TOP) {
+  (async () => {
+    for (let i = 0; i < texCells.length; i++) {
+      try {
+        const tex = await awaitTileTexture(texCells[i].x, texCells[i].y);
+        if (!tex) continue;
+        const mat = terrainMats[i];
+        if (mat.map && mat.map !== tex) mat.map.dispose();
+        mat.map = tex;
+        mat.emissiveMap = tex;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+      } catch { /* 单格失败无妨，保留 z7 */ }
+    }
+  })();
+}
 
 // ---------- 路线 ----------
 function routePoints(list) {

@@ -137,7 +137,8 @@ async function music() {
     mkdirSync(shared, { recursive: true });
     for (const [, name] of FONTS) {
       const src = A(`fonts/${name}`);
-      if (existsSync(src) && !existsSync(path.join(shared, name))) cpSync(src, path.join(shared, name));
+      // 字体始终覆盖分发：子集化等更新后旧文件才能被替换
+      if (existsSync(src)) cpSync(src, path.join(shared, name));
     }
   }
   console.log(`完成：ok=${ok} skip=${skip} fail=${fail}`);

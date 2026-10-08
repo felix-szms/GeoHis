@@ -156,7 +156,8 @@ function spreadFiles() {
     for (const dir of fontDirs) {
       mkdirSync(dir, { recursive: true });
       const dst = path.join(dir, name);
-      if (!existsSync(dst)) cpSync(src, dst);
+      // 字体始终覆盖分发：子集化等更新后旧文件才能被替换（瓦片/音乐保持跳过语义）
+      cpSync(src, dst);
     }
   }
   // 音乐：全部课程页面引用 eastern-thought.mp3
