@@ -203,6 +203,13 @@ const terrainMats = [];
 const texJobs = []; // 贴图请求全部先发出（浏览器自行限并发），几何体构建不再被逐瓦片 await 阻塞
 const texCells = []; // 记录各 cell 坐标，供互动模式的后台 z8 升级使用
 const SEGS = 32;
+// 边缘羽化：地形网格边缘按顶点 alpha 渐隐，融入世界底图（消除走廊矩形的生硬边框）
+const MESH_X0 = TX0 * PX - CX, MESH_X1 = (TX1 + 1) * PX - CX;
+const MESH_Z0 = TY0 * PX - CY, MESH_Z1 = (TY1 + 1) * PX - CY;
+const edgeAlpha = (vx, vz) => {
+  const t = Math.max(0, Math.min(1, Math.min(vx - MESH_X0, MESH_X1 - vx, vz - MESH_Z0, MESH_Z1 - vz) / (PX * 1.4) - 0.21));
+  return t * t * (3 - 2 * t);
+};
 // 互动模式首屏只取 z7（瓦片量 ~1/5，场景尽快可玩），z8 在模块就绪后后台逐格升级
 // 视频渲染（TOP=false）仍等待完整 z8，确定性逐帧输出不受影响
 const z7Texture = async (x, y) => {
@@ -232,6 +239,14 @@ for (let x = TX0; x <= TX1; x++) {
     }
     geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    const cols = new Float32Array((SEGS + 1) * (SEGS + 1) * 4);
+    for (let iy = 0; iy <= SEGS; iy++)
+      for (let ix = 0; ix <= SEGS; ix++) {
+        const k = (iy * (SEGS + 1) + ix) * 4;
+        cols[k] = cols[k + 1] = cols[k + 2] = 1;
+        cols[k + 3] = edgeAlpha(x * PX + (ix / SEGS) * PX - CX, y * PX + (iy / SEGS) * PX - CY);
+      }
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 4));
     geo.setIndex(idx);
     geo.computeVertexNormals();
     texJobs.push(TOP ? z7Texture(x, y) : awaitTileTexture(x, y));
@@ -239,6 +254,7 @@ for (let x = TX0; x <= TX1; x++) {
     const mat = new THREE.MeshStandardMaterial({
       roughness: 0.96, metalness: 0, color: 0x1a150e,
       emissive: 0x8a8fa6, emissiveIntensity: 0, // 互动模式动态提亮暗部（海洋/高纬）
+      vertexColors: true, transparent: true, // 顶点 alpha = 网格边缘羽化
     });
     terrainMats.push(mat);
     scene.add(new THREE.Mesh(geo, mat));
