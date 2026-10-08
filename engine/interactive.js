@@ -64,15 +64,21 @@ function loop(ts) {
   last = ts;
   raf = requestAnimationFrame(loop);
 }
+// 配乐对位：preload=none 时 duration 未知（NaN），直接赋 currentTime 会抛异常——
+// 先触发播放加载，元数据就绪后再定位
+function syncBgmTo(t) {
+  if (ui.bgm.muted) return;
+  const seek = () => { if (isFinite(ui.bgm.duration)) ui.bgm.currentTime = Math.min(t, Math.max(0, ui.bgm.duration - 1)); };
+  ui.bgm.play().catch(() => {});
+  if (ui.bgm.readyState >= 1) seek();
+  else ui.bgm.addEventListener("loadedmetadata", seek, { once: true });
+}
 function play() {
   if (playing) return;
-  if (APP.t >= APP.DUR - 0.05) { APP.seek(0); ui.bgm.currentTime = 0; }
+  if (APP.t >= APP.DUR - 0.05) { APP.seek(0); if (isFinite(ui.bgm.duration)) ui.bgm.currentTime = 0; }
   playing = true;
   ui.play.textContent = "❚❚";
-  if (!ui.bgm.muted) {
-    ui.bgm.currentTime = Math.min(APP.t, Math.max(0, ui.bgm.duration - 1));
-    ui.bgm.play().catch(() => {});
-  }
+  syncBgmTo(APP.t);
   last = null;
   raf = requestAnimationFrame(loop);
 }
@@ -234,7 +240,7 @@ function buildUI() {
   ui.mute.onclick = () => {
     ui.bgm.muted = !ui.bgm.muted;
     ui.mute.textContent = ui.bgm.muted ? "🔇" : "🔊";
-    if (!ui.bgm.muted && playing) { ui.bgm.currentTime = Math.min(APP.t, Math.max(0, ui.bgm.duration - 1)); ui.bgm.play().catch(() => {}); }
+    if (!ui.bgm.muted && playing) syncBgmTo(APP.t);
   };
   // 知识卡最小化切换（点击 − 折叠为标题栏，+ 展开）
   const cardEl = document.getElementById("stationcard");
