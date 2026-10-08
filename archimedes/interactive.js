@@ -143,10 +143,38 @@ function updateSegChip(t, st) {
   }
 }
 
+// ---------- 年份刻度映射（与共享引擎同款） ----------
+// 进度条以「真实年份」定标：片头/片尾各占 2%，旅程段按年份线性铺开
+// Y0/Y1 在 buildUI（APP 就绪后）初始化
+let Y0 = 0, Y1 = 1;
+const LEAD = 2, TAIL = 2;
+function pctOfT(t) {
+  const t0 = APP.TK[0], t1 = APP.TK[APP.TK.length - 1];
+  if (t <= t0) return (t / Math.max(1, t0)) * LEAD;
+  if (t >= t1) return 100 - TAIL + ((t - t1) / Math.max(1, APP.DUR - t1)) * TAIL;
+  const y = yearAt(t);
+  return LEAD + ((100 - LEAD - TAIL) * (y - Y0)) / Math.max(1e-6, Y1 - Y0);
+}
+function tOfPct(p) {
+  const t0 = APP.TK[0], t1 = APP.TK[APP.TK.length - 1];
+  if (p <= LEAD) return (p / LEAD) * t0;
+  if (p >= 100 - TAIL) return t1 + ((p - (100 - TAIL)) / TAIL) * (APP.DUR - t1);
+  const y = Y0 + ((p - LEAD) / (100 - LEAD - TAIL)) * (Y1 - Y0);
+  const st = APP.stations;
+  for (let k = 0; k < st.length - 1; k++) {
+    if (y >= st[k].year && y <= st[k + 1].year) {
+      const dy = st[k + 1].year - st[k].year;
+      const f = dy === 0 ? 0 : (y - st[k].year) / dy;
+      return APP.TK[k] + f * (APP.TK[k + 1] - APP.TK[k]);
+    }
+  }
+  return APP.TK[st.length - 1];
+}
+
 // ---------- UI 同步 ----------
 function syncUI() {
   const t = APP.t;
-  const pct = (t / APP.DUR) * 100;
+  const pct = pctOfT(t);
   if (!dragging) {
     ui.progress.value = pct;
     ui.progress.style.setProperty("--p", pct + "%");
@@ -170,15 +198,29 @@ function syncUI() {
 // ---------- 构建 ----------
 function buildUI() {
   const DUR = APP.DUR;
+  Y0 = Math.min(...APP.stations.map((s) => s.year));
+  Y1 = Math.max(...APP.stations.map((s) => s.year));
   ui.brand.innerHTML = `${APP.title} · 互动课堂`;
 
-  // 进度条站点刻度
+  // 进度条站点刻度（按真实年份定位）+ 年份标尺
   APP.TK.forEach((tk, i) => {
     const d = document.createElement("div");
     d.className = "tick" + (APP.stations[i].major ? " major" : "");
-    d.style.left = `calc(${(tk / DUR) * 100}% - 1px)`;
+    d.style.left = `calc(${pctOfT(tk).toFixed(2)}% - 1px)`;
     ui.progresswrap.appendChild(d);
   });
+  {
+    const span = Math.max(1, Y1 - Y0);
+    const step = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find((s) => span / s <= 7) || 2000;
+    for (let y = Math.ceil(Y0 / step) * step; y <= Y1; y += step) {
+      const d = document.createElement("div");
+      d.textContent = y < 0 ? `前${-y}` : `${y}`;
+      d.style.cssText =
+        `position:absolute;left:calc(${(LEAD + ((100 - LEAD - TAIL) * (y - Y0)) / span).toFixed(2)}% + 2px);` +
+        "top:-15px;font-size:11px;letter-spacing:.08em;color:#6f6650;pointer-events:none;white-space:nowrap";
+      ui.progresswrap.appendChild(d);
+    }
+  }
 
   // 章节（片头/总览/致谢）；总览落点在相机变焦完成之后（T_OV+7.5）
   const chapters = [
@@ -230,7 +272,7 @@ function buildUI() {
     dragging = true;
     const pct = parseFloat(ui.progress.value);
     ui.progress.style.setProperty("--p", pct + "%");
-    APP.seek((pct / 100) * DUR);
+    APP.seek(tOfPct(pct));
     if (!ui.bgm.muted && ui.bgm.duration) {
       ui.bgm.currentTime = Math.min(APP.t, Math.max(0, ui.bgm.duration - 1));
     }

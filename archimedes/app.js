@@ -534,10 +534,12 @@ el.tlWm.textContent = META.watermark;
 el.ovH1.innerHTML = `${META.ending.headline1}<br />${META.ending.headline2}`;
 el.ovEra.textContent = META.ending.eraLine;
 
+const labelSubs = []; // 各站标签的 .sub（今地名）行——按缩放级别显隐
 const labelEls = DATA.stations.map((st) => {
   const d = document.createElement("div");
   d.className = "lbl" + (st.id % 2 === 0 ? " flip" : "");
   d.innerHTML = `<div class="nm">${st.name}</div><div class="sub">${st.modern}</div>`;
+  labelSubs.push(d.children[1]);
   el.labels.appendChild(d);
   return d;
 });
@@ -578,6 +580,31 @@ const wpPos = DATA.waypointLabels.map((wp) => {
 
 // 知识卡扩展容器（仅互动模式；第 1 层）
 const cardExtra = document.createElement("div");
+// 分页签渲染（与共享引擎同款）：摘要/地理/史料/同期/今日，页签选择跨站点保持
+function renderCardExtra(st) {
+  const secs = [];
+  if (st.note) secs.push(["❖ 摘要", `<div>❖ ${st.note}</div>`]);
+  const geo = [];
+  if (st.elev != null) geo.push(`<div>⛰ ${st.elev >= 0 ? "海拔约 " + st.elev + " 米" : "海拔约海平面下 " + (-st.elev) + " 米"}</div>`);
+  if (st.geo) geo.push(`<div>🧭 ${st.geo}</div>`);
+  if (geo.length) secs.push(["⛰ 地理", geo.join("")]);
+  if (st.quote) secs.push(["❝ 史料", `<div style="color:#d8c79c">❝${st.quote.t}❞ <span style="color:#8f8266">—— ${st.quote.src}</span></div>`]);
+  if (st.world) secs.push(["🌍 同期", `<div>${st.world}</div>`]);
+  if (st.today) secs.push(["🏛 今日", `<div>${st.today}</div>`]);
+  if (!secs.length) { cardExtra.innerHTML = ""; return; }
+  if (secs.length === 1) { cardExtra.innerHTML = secs[0][1]; return; }
+  const cur = Math.min(+(cardExtra.dataset.tab || 0), secs.length - 1);
+  cardExtra.innerHTML =
+    `<div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">` +
+    secs.map((s, i) =>
+      `<span data-tab="${i}" style="cursor:pointer;padding:2px 9px;font-size:12.5px;letter-spacing:.1em;border:1px solid ` +
+      (i === cur ? "rgba(240,205,126,.55);color:#efe0b5" : "rgba(206,166,92,.22);color:#8a7f66") +
+      `;border-radius:3px;user-select:none">${s[0]}</span>`).join("") +
+    `</div><div>${secs[cur][1]}</div>`;
+  [...cardExtra.querySelectorAll("[data-tab]")].forEach((b) => {
+    b.onclick = () => { cardExtra.dataset.tab = b.dataset.tab; renderCardExtra(st); };
+  });
+}
 cardExtra.style.cssText =
   "margin-top:10px;padding-top:8px;border-top:1px solid rgba(206,166,92,0.25);font-size:15px;line-height:1.7;color:#c7b993;display:flex;flex-direction:column;gap:4px;max-height:168px;overflow-y:auto;scrollbar-width:thin";
 if (TOP && el.card) el.card.appendChild(cardExtra);
@@ -851,15 +878,29 @@ function updateInner(t) {
 
   const inOverview = t >= T_OV - 4;
   const dim = t > T_CR + 1 ? 1 - sstep(T_CR + 1, T_CR + 3, t) : 1;
+  // 缩放分级 + 站点三态（与共享引擎同款）
+  const visSpan = 2 * Math.max(300, camera.position.y) * Math.tan(HFIZ / 2);
+  const spanZ = MESH_MAXZ - MESH_MINZ;
+  const lvl = visSpan > spanZ * 1.3 ? 0 : visSpan < spanZ * 0.5 ? 2 : 1;
+  const curIdx = t >= T_J0 && t < T_OV ? segAt(t) : -1;
   DATA.stations.forEach((st, i) => {
     const passed = u >= stationU[i] - 0.0005;
     const fade = sstep(stationU[i] - 0.008, stationU[i] - 0.001, u);
-    stationSprites[i].material.opacity = (passed ? 0.95 : fade * 0.9) * routeMatOpacity * dim;
+    const sm = stationSprites[i].material;
+    sm.color.setHex(i === curIdx ? 0xfff2c8 : passed ? 0xf0cd7e : 0x93805a);
+    sm.opacity = (passed ? 0.95 : fade * 0.55) * routeMatOpacity * dim;
+    stationSprites[i].scale.setScalar(i === curIdx ? 9 + Math.sin(t * 6) * 1.5 : passed ? 6.2 : 5.2);
     const op = inOverview
       ? sstep(T_OV - 4 + i * 0.06, T_OV - 2 + i * 0.06, t) * dim
       : fade * dim * routeMatOpacity;
-    setLabel(labelEls[i], stationPos[i], t < T_J0 ? 0 : op,
-      st.labelOnMap === false, st.labelDx || 0, st.labelDy || 0);
+    const allow = lvl === 2 || st.major;
+    if (!allow) {
+      setLabel(labelEls[i], stationPos[i], 0, true);
+    } else {
+      labelSubs[i].style.display = lvl >= 1 ? "" : "none";
+      setLabel(labelEls[i], stationPos[i], t < T_J0 ? 0 : op,
+        st.labelOnMap === false, st.labelDx || 0, st.labelDy || 0);
+    }
   });
   wpEls.forEach((d, i) => {
     const op = inOverview ? dim * 0.85 : 0;
@@ -930,16 +971,7 @@ function updateInner(t) {
       el.cardName.textContent = st.name;
       el.cardModern.textContent = `${st.modern} · ${bc}`;
       el.cardText.textContent = st.text;
-      if (TOP) {
-        const lines = [];
-        if (st.note) lines.push(`<div>❖ ${st.note}</div>`);
-        if (st.elev != null) lines.push(`<div>⛰ ${st.elev >= 0 ? "海拔约 " + st.elev + " 米" : "海拔约海平面下 " + (-st.elev) + " 米"}</div>`);
-        if (st.geo) lines.push(`<div>🧭 ${st.geo}</div>`);
-        if (st.quote) lines.push(`<div style="color:#d8c79c">❝${st.quote.t}❞ <span style="color:#8f8266">—— ${st.quote.src}</span></div>`);
-        if (st.world) lines.push(`<div>🌍 同期 · ${st.world}</div>`);
-        if (st.today) lines.push(`<div>🏛 今日 · ${st.today}</div>`);
-        cardExtra.innerHTML = lines.join("");
-      }
+      if (TOP) renderCardExtra(st);
       if (st.art) {
         el.cardArt.src = st.art;
         el.cardArt.style.display = "block";
@@ -1057,7 +1089,10 @@ if (TOP) {
     if (idx >= 0) {
       canvas.style.cursor = "pointer";
       const t2 = ensureTip();
-      t2.textContent = `${String(idx + 1).padStart(2, "0")} ${DATA.stations[idx].name}`;
+      t2.innerHTML =
+        `<div style="font-size:17px;letter-spacing:.12em">${String(idx + 1).padStart(2, "0")} ${DATA.stations[idx].name}` +
+        `<span style="color:#8a7f66;font-size:12.5px;margin-left:12px">${DATA.stations[idx].year < 0 ? "前" + (-DATA.stations[idx].year) + "年" : DATA.stations[idx].year + "年"}</span></div>` +
+        (DATA.stations[idx].title ? `<div style="font-size:13px;color:#c9b98f;margin-top:4px;letter-spacing:.06em">${DATA.stations[idx].title}</div>` : "");
       const rootRect = document.getElementById("root").getBoundingClientRect();
       const sx = (ev.clientX - rootRect.left) / (rootRect.width / W);
       const sy = (ev.clientY - rootRect.top) / (rootRect.height / H);
